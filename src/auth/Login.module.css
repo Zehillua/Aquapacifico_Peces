@@ -1,0 +1,145 @@
+/* Asegúrate de que el contenedor principal abarque toda la ventana */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif; /* Ajusta la fuente según tu preferencia */
+  background-color: #f4f4f9; /* Color de fondo para todo */
+  overflow: hidden; /* Elimina el desplazamiento */
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.loginContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Asegurar que ocupe toda la altura de la pantalla */
+  width: 100%;
+  background-color: white; /* Color de fondo sólido */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.loginLogoContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1; /* Ocupa un espacio igual dentro del contenedor */
+}
+
+.loginLogo {
+  max-width: 70%;
+  height: auto;
+  transition: transform 0.3s ease;
+}
+
+.loginLogo:hover {
+  transform: scale(1.05); /* Agrandar logo al pasar el ratón */
+}
+
+.loginFormContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1; /* Ocupa un espacio igual dentro del contenedor */
+}
+
+.loginForm {
+  background-color: rgba(215, 210, 210, 0.8);
+  padding: 40px; /* Aumentar el padding para centrar mejor el contenido */
+  border-radius: 10px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  max-width: 400px; /* Ancho máximo del formulario */
+  width: 100%; /* Ancho del formulario */
+  animation: slideIn 0.5s ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.loginFormGroup {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centrar los cuadros */
+}
+
+.loginFormGroup label {
+  display: block;
+  margin-bottom: 15px;
+  text-align: center; /* Centrar el texto de las etiquetas */
+}
+
+.loginFormGroup input {
+  width: 90%; /* Ajustar el ancho de los cuadros */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.loginButton {
+  width: 100%;
+  padding: 10px;
+  margin-top: 20px; /* Aumentar el margen superior */
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.loginButton:hover {
+  background-color: #0056b3; /* Color azul oscuro al pasar el ratón */
+  transform: translateY(-2px); /* Elevar botón al pasar el ratón */
+}
+
+.secondaryLoginButton {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px; /* Ajustar el margen superior */
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.secondaryLoginButton:hover {
+  background-color: #0056b3; /* Color gris oscuro al pasar el ratón */
+  transform: translateY(-2px); /* Elevar botón al pasar el ratón */
+}
+
+.loginHeading {
+  background-color: rgba(223, 232, 217, 0.207); /* Fondo similar al del cuadro */
+  color: rgb(24, 24, 24);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 15px; /* Espaciado inferior */
+  text-align: center; /* Centrar el texto del encabezado */
+}

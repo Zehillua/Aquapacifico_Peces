@@ -1,0 +1,147 @@
+.listaPelletsContainer {
+  padding: 20px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  max-width: 1000px;
+  margin: auto;
+  margin-top: 20px;
+}
+
+.tableContainer {
+  max-height: 400px; /* Ajusta según sea necesario */
+  overflow-y: auto;
+}
+
+.addButton {
+  background-color: #28a745;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.addButton:hover {
+  background-color: #218838;
+}
+
+.backButton {
+  background-color: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-bottom: 20px;
+  margin-right: 10px;
+}
+
+.backButton:hover {
+  background-color: #c82333;
+}
+
+.ingredientesTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ingredientesTable th, .ingredientesTable td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.ingredientesTable th {
+  background-color: #f2f2f2;
+}
+
+.actionButton {
+  background-color: #007bff;
+  color: white;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin: 0 5px;
+}
+
+.actionButton:hover {
+  background-color: #0056b3;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modalContent {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.modalContent h2 {
+  margin-top: 0;
+}
+
+.modalContent label {
+  display: block;
+  margin-top: 10px;
+}
+
+.modalContent input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.modalContent button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 20px;
+}
+
+.modalContent button:hover {
+  background-color: #0056b3;
+}
+
+.modalContent button[type="button"] {
+  background-color: #6c757d;
+  margin-left: 10px;
+}
+
+.modalContent button[type="button"]:hover {
+  background-color: #5a6268;
+}
+
+/* Botón de Confirmar en rojo */
+.modalContent .confirmButton {
+  background-color: #dc3545;
+  margin-left: 10px;
+}
+
+.modalContent .confirmButton:hover {
+  background-color: #c82333;
+}

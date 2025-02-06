@@ -1,0 +1,105 @@
+/* Asegúrate de que el contenedor principal abarque toda la ventana */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif; /* Ajusta la fuente según tu preferencia */
+  background-color: #f4f4f9; /* Color de fondo para todo */
+  padding: 0; 
+  overflow-y: hidden;
+  overflow-x: hidden;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.menuPrincipalContainer {
+  text-align: center;
+  padding: 20px;
+  background-color: white; /* Color de fondo sólido */
+  min-height: auto;
+  height: 100vh; /* Mantiene la altura de la ventana */
+  overflow-y: auto; /* Habilita el scroll solo si es necesario */
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-sizing: border-box; /* Incluir padding en el tamaño total */
+  animation: fadeIn 0.5s ease-in-out;
+  width: 100vw;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.menuPrincipalHeader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px; /* Ajustar la distancia entre el encabezado y las imágenes */
+}
+
+.menuPrincipalLogo {
+  width: 400px; /* Aumentar el tamaño del logo */
+  height: auto;
+  margin-bottom: 40px; /* Aumentar la distancia entre el logo y el encabezado */
+  transition: transform 0.3s ease;
+}
+
+.menuPrincipalLogo:hover {
+  transform: scale(1.05); /* Agrandar logo al pasar el ratón */
+}
+
+.menuPrincipalPezContainer {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px; /* Mover imágenes más abajo */
+}
+
+.menuPrincipalPezItem {
+  margin: 20px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.menuPrincipalPezImage {
+  width: 200px; /* Hacer los cuadros más anchos */
+  height: 150px;
+  object-fit: cover;
+  border-radius: 10px;
+  transition: transform 0.3s ease; /* Agregar transición solo a la imagen */
+}
+
+.menuPrincipalPezItem:hover .menuPrincipalPezImage {
+  transform: scale(1.1); /* Agrandar imagen al pasar el ratón */
+}
+
+.menuPrincipalButton {
+  margin-top: 40px; /* Ajustar margen superior */
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: #dc3545;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.menuPrincipalButton:hover {
+  background-color: #c82333;
+  transform: translateY(-2px); /* Elevar botón al pasar el ratón */
+}

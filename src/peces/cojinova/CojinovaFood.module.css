@@ -1,0 +1,195 @@
+/* Asegúrate de que el contenedor principal abarque toda la ventana */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif; /* Ajusta la fuente según tu preferencia */
+  background-color: #f4f4f9; /* Color de fondo para todo */
+  overflow: hidden; /* Elimina el desplazamiento */
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.cojinovaFoodContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  width: 100%;
+  height: 652px ;
+  background-color: white; /* Color de fondo para el contenedor principal */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto; /* Permite el desplazamiento vertical si es necesario */
+}
+
+.cojinovaFoodLogo {
+  max-width: 150px;
+  margin-bottom: 20px;
+}
+
+.cojinovaFoodMain {
+  display: flex;
+  gap: 20px; /* Espacio entre el formulario y los cuadros de información */
+  width: 100%;
+  max-width: 1200px;
+  height: calc(100% - 80px); /* Asegura que el contenido principal tenga altura completa menos el espacio del padding */
+}
+
+.cojinovaFoodContent {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 45%; /* Ajusta el ancho del formulario */
+  height: 70%;
+  overflow-y: auto; /* Permite el desplazamiento vertical si es necesario */
+}
+
+.cojinovaFoodForm {
+  display: flex;
+  flex-wrap: wrap; /* Permite que los elementos del formulario se ajusten */
+  gap: 15px;
+}
+
+.cojinovaFoodFormGroup {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 45%; /* Ajusta la flexibilidad para que haya dos columnas */
+}
+
+.cojinovaFoodFormGroup label {
+  margin-bottom: 5px;
+}
+
+.cojinovaFoodFormGroup input, .cojinovaFoodFormGroup select {
+  padding: 8px; /* Reduce el padding */
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px; /* Reduce el tamaño de la fuente */
+}
+
+.cojinovaFoodButton {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  flex: 1 1 100%; /* Permite que el botón ocupe toda la fila */
+}
+
+.cojinovaFoodButton:disabled {
+  background-color: #999;
+  cursor: not-allowed;
+}
+
+.cojinovaFoodButton:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.cojinovaFoodBackButton {
+  margin-top: 10px;
+  padding: 10px 15px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  flex: 1 1 100%; /* Permite que el botón ocupe toda la fila */
+}
+
+.cojinovaFoodBackButton:hover {
+  background-color: #5a6268;
+}
+
+.ingredientsTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.ingredientsTable th, .ingredientsTable td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.ingredientsTable th {
+  background-color: #f2f2f2;
+}
+
+.ingredientsTable td {
+  background-color: #ffffff;
+}
+
+
+.cojinovaFoodDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 50%; /* Ajusta el ancho de la sección de detalles */
+  height: 100%;
+  overflow-y: auto; /* Permite el desplazamiento vertical si es necesario */
+}
+
+.cojinovaFoodDetailBox {
+  background-color: white;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.cojinovaFoodDetailBox:hover {
+  transform: translateY(-5px);
+  background-color: #e9ecef;
+}
+
+.cojinovaFoodDetailBox h3 {
+  margin-bottom: 10px;
+  font-size: 20px;
+  color: #343a40;
+}
+
+.cojinovaFoodDetailBox p {
+  margin: 0;
+  font-size: 16px;
+  color: #495057;
+}
+
+@keyframes percentageIncrease {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.percentageBar {
+  height: 10px;
+  border-radius: 5px;
+  animation: percentageIncrease 2s ease-out;
+}
+
+.percentageBar.green {
+  background-color: green;
+}
+
+.percentageBar.yellow {
+  background-color: yellow;
+}
+
+.percentageBar.orange {
+  background-color: orange;
+}
+
+.percentageBar.red {
+  background-color: red;
+}
