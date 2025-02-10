@@ -11,6 +11,7 @@ import jwt
 import random
 import string
 from colecciones.mongo_setup import db  # Asegúrate de que la ruta es correcta
+from funciones.funciones import calcular_nutrientes, resolver_problema_minimizacion, calcular_nutrientes_generico
 
 api = Blueprint('api', __name__)
 
@@ -183,141 +184,42 @@ def get_palometa_etapas():
     etapas = db.peces.distinct("etapa", {"nombre": "Palometa"})
     return jsonify({"success": True, "etapas": etapas})
 
+
 @api.route('/congrio-food', methods=['POST'])
 def congrio_food():
     data = request.json
 
     # Obtener datos del formulario
+    nombre_especie = data.get('nombre_especie')
     etapa = data.get('etapa')
     cantidad_peces = int(data.get('cantidad_peces'))
     peso_promedio = float(data.get('peso_promedio'))
     peso_objetivo = data.get('peso_objetivo')
-    levadura_gramos = float(data.get('levadura_gramos'))
-    proteina_actual = float(data.get('proteina_actual'))
-    lipido_actual = float(data.get('lipido_actual'))
-    carbohidrato_actual = float(data.get('carbohidrato_actual'))
+    cantidad_levadura = float(data.get('levadura_gramos'))
+    cant_proteina = float(data.get('proteina_actual'))
+    cant_lipidos = float(data.get('lipido_actual'))
+    cant_carbohidratos = float(data.get('carbohidrato_actual'))
+    porcentaje_biomasa = float(data.get('porcentaje_biomasa'))  # Nuevo campo
+    days = int(data.get('dias'))
 
-    # Obtener los valores de proteína, lípidos y carbohidratos para la etapa
-    congrio = db.peces.find_one({"nombre": "Congrio", "etapa": etapa})
-
-    if not congrio:
-        return jsonify({"success": False, "message": "Etapa no encontrada"}), 404
-
-    if peso_objetivo == "aumentar":
-        proteina_necesaria = congrio["proteina"]["max"]
-        lipido_necesario = congrio["lipidos"]["max"]
-        carbohidrato_necesario = congrio["carbohidratos"]["max"]
-    elif peso_objetivo == "mantener":
-        proteina_necesaria = congrio["proteina"]["mantener"]
-        lipido_necesario = congrio["lipidos"]["mantener"]
-        carbohidrato_necesario = congrio["carbohidratos"]["mantener"]
-    elif peso_objetivo == "disminuir":
-        proteina_necesaria = congrio["proteina"]["min"]
-        lipido_necesario = congrio["lipidos"]["min"]
-        carbohidrato_necesario = congrio["carbohidratos"]["min"]
-    else:
-        return jsonify({"success": False, "message": "Peso objetivo inválido"}), 400
-
-    # Calcular biomasa y alimento diario
-    biomasa = cantidad_peces * peso_promedio
-    alimento_diario = biomasa * 0.03
-
-    # Calcular gramos necesarios de cada nutriente
-    proteinas_necesarias = proteina_necesaria * alimento_diario
-    lipidos_necesarios = lipido_necesario * alimento_diario
-    carbohidratos_necesarios = carbohidrato_necesario * alimento_diario
-
-    print("Biomasa: ", biomasa)
-    print("Alimento Diario: ", alimento_diario)
-    print("Proteinas Necesarias: ", proteinas_necesarias)
-    print("Lipidos Necesarios: ", lipidos_necesarios)
-    print("Carbohidratos Necesarios: ", carbohidratos_necesarios)
+    # Calcular los nutrientes necesarios para la especie
+    try:
+        nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days)
+        print(nutrientes)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
     # Obtener todos los ingredientes de la base de datos
     ingredientes = {ing["nombre"]: ing for ing in db.ingredientes.find()}
 
-    # Crear el problema de minimización de costo
-    problema = pulp.LpProblem("Minimizar_Costo_Alimento", pulp.LpMinimize)
+    # Resolver el problema de minimización de costos
+    ingredientes_usados, resultados, porcentaje_levadura, deficiencia_proteinas, deficiencia_lipidos, deficiencia_carbohidratos = resolver_problema_minimizacion(ingredientes, nutrientes)
 
-    # Definir variables con límites inferiores de 0 para evitar valores negativos
-    variables = {ing.replace(" ", "_"): pulp.LpVariable(ing.replace(" ", "_"), lowBound=0) for ing in ingredientes}
-
-    # Función objetivo: minimizar el costo total
-    problema += pulp.lpSum([ingredientes[ing]["coste"] * variables[ing.replace(" ", "_")] for ing in ingredientes])
-
-    # Restricciones nutricionales básicas
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios
-
-    # Rango tolerable de nutrientes (10% de margen)
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= proteinas_necesarias * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= lipidos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= carbohidratos_necesarios * 0.9
-
-    # Restricción de cantidad total de la mezcla (2% de margen)
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) >= alimento_diario * 0.98
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) <= alimento_diario * 1.02
-
-    # Restricciones específicas de levadura (0.1% mínimo y 1% máximo del alimento diario)
-    problema += variables["Levadura"] >= 0.001 * alimento_diario  # Mínimo 0.1%
-    problema += variables["Levadura"] <= min(ingredientes["Levadura"]["stock"], 0.01 * alimento_diario)  # Máximo 1% o stock disponible
-
-    # Resolver el problema
-    problema.solve()
-
-    # Obtener resultados y valores intermedios
-    resultados = {var.name: var.varValue for var in variables.values()}
-
-    # Imprimir resultados intermedios
-    for ing, cantidad in resultados.items():
-        print(f"{ing}: {cantidad} gramos")
-
-    # Filtrar solo los ingredientes utilizados
-    ingredientes_usados = []
-    for ing, datos in ingredientes.items():
-        cantidad_usada = resultados.get(ing.replace(" ", "_"), 0)
-        if cantidad_usada > 0:
-            stock_restante = max(0, datos["stock"] - cantidad_usada)
-            ingrediente_info = {
-                "nombre": ing,
-                "cantidad_gramos": cantidad_usada,
-                "stock_usado": cantidad_usada > datos["stock"],
-                "stock_restante": stock_restante
-            }
-            if cantidad_usada > datos["stock"]:
-                gramos_adicionales = cantidad_usada - datos["stock"]
-                ingrediente_info["cantidad_adicional"] = gramos_adicionales
-                ingrediente_info["mensaje_adicional"] = f'Se necesitan {gramos_adicionales:.4f} gramos adicionales de {ing} para cumplir con la cantidad necesaria.'
-            ingredientes_usados.append(ingrediente_info)
-            # Descontar del stock del ingrediente sin permitir valores negativos
-            db.ingredientes.update_one(
-                {"nombre": ing},
-                {"$set": {"stock": stock_restante}}
-            )
-
-    # Calcular porcentaje de levadura utilizado
-    levadura_usada = resultados.get("Levadura", 0)
-    if levadura_usada > 0:
-        porcentaje_levadura = (levadura_usada * 100) / ingredientes["Levadura"]["stock"]
-    else:
-        porcentaje_levadura = 0
-
-    # Verificar deficiencias en nutrientes
-    deficiencia_proteinas = max(0, proteinas_necesarias - sum(ingredientes[ing]["proteinas"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_lipidos = max(0, lipidos_necesarios - sum(ingredientes[ing]["lipidos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_carbohidratos = max(0, carbohidratos_necesarios - sum(ingredientes[ing]["carbohidratos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-
-    # Preparar respuesta
+    # Preparar la respuesta
     respuesta = {
         "success": True,
         "ingredientes_usados": ingredientes_usados,
-        "proteina_necesaria_total": proteinas_necesarias,
-        "lipido_necesario_total": lipidos_necesarios,
-        "carbohidrato_necesario_total": carbohidratos_necesarios,
+        "resultados": resultados,
         "porcentaje_levadura": porcentaje_levadura,
         "deficiencia_proteinas": deficiencia_proteinas,
         "deficiencia_lipidos": deficiencia_lipidos,
