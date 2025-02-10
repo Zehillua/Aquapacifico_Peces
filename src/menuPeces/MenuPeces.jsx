@@ -18,6 +18,11 @@ const MenuPeces = () => {
     }
   }, [navigate]);
 
+  const handleSelectPez = (especie, ruta) => {
+    localStorage.setItem('nombre_especie', especie);
+    navigate(ruta);
+  };
+
   return (
     <div className={styles.menuPrincipalContainer}>
       <div className={styles.menuPrincipalHeader}>
@@ -25,19 +30,19 @@ const MenuPeces = () => {
         <h1>A qué pez desea alimentar</h1>
       </div>
       <div className={styles.menuPrincipalPezContainer}>
-        <div className={styles.menuPrincipalPezItem} onClick={() => navigate('/congrio')}>
+        <div className={styles.menuPrincipalPezItem} onClick={() => handleSelectPez('Congrio', '/congrio')}>
           <img src={congrioImage} alt="Congrio" className={styles.menuPrincipalPezImage} />
           <p>Congrio</p>
         </div>
-        <div className={styles.menuPrincipalPezItem} onClick={() => navigate('/palometa')}>
+        <div className={styles.menuPrincipalPezItem} onClick={() => handleSelectPez('Palometa', '/palometa')}>
           <img src={palometaImage} alt="Palometa" className={styles.menuPrincipalPezImage} />
           <p>Palometa</p>
         </div>
-        <div className={styles.menuPrincipalPezItem} onClick={() => navigate('/cojinova')}>
+        <div className={styles.menuPrincipalPezItem} onClick={() => handleSelectPez('Cojinova', '/cojinova')}>
           <img src={cojinovaImage} alt="Cojinova" className={styles.menuPrincipalPezImage} />
           <p>Cojinova</p>
         </div>
-        <div className={styles.menuPrincipalPezItem} onClick={() => navigate('/corvina')}>
+        <div className={styles.menuPrincipalPezItem} onClick={() => handleSelectPez('Corvina', '/corvina')}>
           <img src={corvinaImage} alt="Corvina" className={styles.menuPrincipalPezImage} />
           <p>Corvina</p>
         </div>

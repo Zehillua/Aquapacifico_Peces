@@ -45,7 +45,7 @@ html, body {
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   width: 45%; /* Ajusta el ancho del formulario */
-  height: 70%;
+  height: 80%;
   overflow-y: auto; /* Permite el desplazamiento vertical si es necesario */
 }
 
