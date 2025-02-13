@@ -154,3 +154,16 @@ def calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, 
         "carbohidratos_necesarios_min": carbohidratos_necesarios_min,
         "carbohidratos_necesarios_max": carbohidratos_necesarios_max
     }
+
+
+
+def convert_and_process(data):
+    """Procesa un diccionario recursivamente y convierte los valores a float si es posible."""
+    for key, value in data.items():
+        if isinstance(value, dict):  # Si el campo es un diccionario anidado
+            convert_and_process(value)
+        else:
+            if isinstance(value, (int, float)):
+                data[key] = float(value)  # Asegurar que los enteros también sean float
+            elif isinstance(value, str) and value.replace('.', '', 1).isdigit():
+                data[key] = float(value)  # Convertir strings numéricos en float

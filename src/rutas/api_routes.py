@@ -11,7 +11,7 @@ import jwt
 import random
 import string
 from colecciones.mongo_setup import db  # Asegúrate de que la ruta es correcta
-from funciones.funciones import calcular_nutrientes, resolver_problema_minimizacion, calcular_nutrientes_generico
+from funciones.funciones import calcular_nutrientes, resolver_problema_minimizacion, calcular_nutrientes_generico, convert_and_process
 
 api = Blueprint('api', __name__)
 
@@ -235,137 +235,36 @@ def cojinova_food():
     data = request.json
 
     # Obtener datos del formulario
+    nombre_especie = data.get('nombre_especie')
     etapa = data.get('etapa')
     cantidad_peces = int(data.get('cantidad_peces'))
     peso_promedio = float(data.get('peso_promedio'))
     peso_objetivo = data.get('peso_objetivo')
-    levadura_gramos = float(data.get('levadura_gramos'))
-    proteina_actual = float(data.get('proteina_actual'))
-    lipido_actual = float(data.get('lipido_actual'))
-    carbohidrato_actual = float(data.get('carbohidrato_actual'))
+    cantidad_levadura = float(data.get('levadura_gramos'))
+    cant_proteina = float(data.get('proteina_actual'))
+    cant_lipidos = float(data.get('lipido_actual'))
+    cant_carbohidratos = float(data.get('carbohidrato_actual'))
+    porcentaje_biomasa = float(data.get('porcentaje_biomasa'))  # Nuevo campo
+    days = int(data.get('dias'))
 
-    # Obtener los valores de proteína, lípidos y carbohidratos para la etapa
-    cojinova = db.peces.find_one({"nombre": "Cojinova", "etapa": etapa})
-
-    if not cojinova:
-        return jsonify({"success": False, "message": "Etapa no encontrada"}), 404
-
-    if peso_objetivo == "aumentar":
-        proteina_necesaria = cojinova["proteina"]["max"]
-        lipido_necesario = cojinova["lipidos"]["max"]
-        carbohidrato_necesario = cojinova["carbohidratos"]["max"]
-    elif peso_objetivo == "mantener":
-        proteina_necesaria = cojinova["proteina"]["mantener"]
-        lipido_necesario = cojinova["lipidos"]["mantener"]
-        carbohidrato_necesario = cojinova["carbohidratos"]["mantener"]
-    elif peso_objetivo == "disminuir":
-        proteina_necesaria = cojinova["proteina"]["min"]
-        lipido_necesario = cojinova["lipidos"]["min"]
-        carbohidrato_necesario = cojinova["carbohidratos"]["min"]
-    else:
-        return jsonify({"success": False, "message": "Peso objetivo inválido"}), 400
-
-    # Calcular biomasa y alimento diario
-    biomasa = cantidad_peces * peso_promedio
-    alimento_diario = biomasa * 0.03
-
-    # Calcular gramos necesarios de cada nutriente
-    proteinas_necesarias = proteina_necesaria * alimento_diario
-    lipidos_necesarios = lipido_necesario * alimento_diario
-    carbohidratos_necesarios = carbohidrato_necesario * alimento_diario
-    print("Proteinas: ", proteinas_necesarias)
-    print("Lipidos: ", lipidos_necesarios)
-    print("Carbo: ", carbohidratos_necesarios)
-    # Actualizar los valores de la levadura en la base de datos
-    db.ingredientes.update_one(
-        {"nombre": "Levadura"},
-        {"$set": {
-            "proteinas": proteina_actual,
-            "lipidos": lipido_actual,
-            "carbohidratos": carbohidrato_actual,
-            "stock": levadura_gramos
-        }}
-    )
+    # Calcular los nutrientes necesarios para la especie
+    try:
+        nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days)
+        print(nutrientes)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
     # Obtener todos los ingredientes de la base de datos
     ingredientes = {ing["nombre"]: ing for ing in db.ingredientes.find()}
 
-    # Crear el problema de minimización de costo
-    problema = pulp.LpProblem("Minimizar_Costo_Alimento", pulp.LpMinimize)
+    # Resolver el problema de minimización de costos
+    ingredientes_usados, resultados, porcentaje_levadura, deficiencia_proteinas, deficiencia_lipidos, deficiencia_carbohidratos = resolver_problema_minimizacion(ingredientes, nutrientes)
 
-    # Definir variables
-    variables = {ing.replace(" ", "_"): pulp.LpVariable(ing.replace(" ", "_"), lowBound=0, upBound=ingredientes[ing]["stock"]) for ing in ingredientes}
-
-    # Función objetivo
-    problema += pulp.lpSum([ingredientes[ing]["coste"] * variables[ing.replace(" ", "_")] for ing in ingredientes])
-
-    # Restricciones nutricionales básicas
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios
-
-    # Rango tolerable de nutrientes
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= proteinas_necesarias * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= lipidos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= carbohidratos_necesarios * 0.9
-
-    # Restricción de cantidad total de la mezcla (variabilidad)
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) >= alimento_diario * 0.98
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) <= alimento_diario * 1.02
-
-    # Restricciones específicas de levadura (volumen) y stock ajustadas
-    problema += variables["Levadura"] >= 0.001 * alimento_diario  # Min 0.1%
-    problema += variables["Levadura"] <= min(ingredientes["Levadura"]["stock"], 0.01 * alimento_diario)  # Máx 1% y stock disponible
-
-    # Resolver el problema
-    problema.solve()
-
-    # Obtener resultados y valores intermedios
-    resultados = {var.name: var.varValue for var in variables.values()}
-    # Filtrar solo los ingredientes utilizados
-    ingredientes_usados = []
-    for ing, datos in ingredientes.items():
-        cantidad_usada = resultados.get(ing.replace(" ", "_"), 0)
-        if cantidad_usada > 0:
-            ingrediente_info = {
-                "nombre": ing,
-                "cantidad_gramos": cantidad_usada,
-                "stock_usado": cantidad_usada > datos["stock"],
-                "stock_restante": max(0, datos["stock"] - cantidad_usada)
-            }
-            if cantidad_usada > datos["stock"]:
-                gramos_adicionales = cantidad_usada - datos["stock"]
-                ingrediente_info["cantidad_adicional"] = gramos_adicionales
-                ingrediente_info["mensaje_adicional"] = f'Se necesitan {gramos_adicionales:.4f} gramos adicionales de {ing} para cumplir con la cantidad necesaria.'
-            ingredientes_usados.append(ingrediente_info)
-            # Descontar del stock del ingrediente
-            db.ingredientes.update_one(
-                {"nombre": ing},
-                {"$inc": {"stock": -cantidad_usada}}
-            )
-
-    # Calcular porcentaje de levadura utilizado
-    levadura_usada = resultados.get("Levadura", 0)
-    if levadura_usada > 0:
-        porcentaje_levadura = (levadura_usada * 100) / ingredientes["Levadura"]["stock"]
-    else:
-        porcentaje_levadura = 0
-
-    # Verificar deficiencias en nutrientes
-    deficiencia_proteinas = max(0, proteinas_necesarias - sum(ingredientes[ing]["proteinas"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_lipidos = max(0, lipidos_necesarios - sum(ingredientes[ing]["lipidos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_carbohidratos = max(0, carbohidratos_necesarios - sum(ingredientes[ing]["carbohidratos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-
-    # Preparar respuesta
+    # Preparar la respuesta
     respuesta = {
         "success": True,
         "ingredientes_usados": ingredientes_usados,
-        "proteina_necesaria_total": proteinas_necesarias,
-        "lipido_necesario_total": lipidos_necesarios,
-        "carbohidrato_necesario_total": carbohidratos_necesarios,
+        "resultados": resultados,
         "porcentaje_levadura": porcentaje_levadura,
         "deficiencia_proteinas": deficiencia_proteinas,
         "deficiencia_lipidos": deficiencia_lipidos,
@@ -380,137 +279,36 @@ def palometa_food():
     data = request.json
 
     # Obtener datos del formulario
+    nombre_especie = data.get('nombre_especie')
     etapa = data.get('etapa')
     cantidad_peces = int(data.get('cantidad_peces'))
     peso_promedio = float(data.get('peso_promedio'))
     peso_objetivo = data.get('peso_objetivo')
-    levadura_gramos = float(data.get('levadura_gramos'))
-    proteina_actual = float(data.get('proteina_actual'))
-    lipido_actual = float(data.get('lipido_actual'))
-    carbohidrato_actual = float(data.get('carbohidrato_actual'))
+    cantidad_levadura = float(data.get('levadura_gramos'))
+    cant_proteina = float(data.get('proteina_actual'))
+    cant_lipidos = float(data.get('lipido_actual'))
+    cant_carbohidratos = float(data.get('carbohidrato_actual'))
+    porcentaje_biomasa = float(data.get('porcentaje_biomasa'))  # Nuevo campo
+    days = int(data.get('dias'))
 
-    # Obtener los valores de proteína, lípidos y carbohidratos para la etapa
-    palometa = db.peces.find_one({"nombre": "Palometa", "etapa": etapa})
-
-    if not palometa:
-        return jsonify({"success": False, "message": "Etapa no encontrada"}), 404
-
-    if peso_objetivo == "aumentar":
-        proteina_necesaria = palometa["proteina"]["max"]
-        lipido_necesario = palometa["lipidos"]["max"]
-        carbohidrato_necesario = palometa["carbohidratos"]["max"]
-    elif peso_objetivo == "mantener":
-        proteina_necesaria = palometa["proteina"]["mantener"]
-        lipido_necesario = palometa["lipidos"]["mantener"]
-        carbohidrato_necesario = palometa["carbohidratos"]["mantener"]
-    elif peso_objetivo == "disminuir":
-        proteina_necesaria = palometa["proteina"]["min"]
-        lipido_necesario = palometa["lipidos"]["min"]
-        carbohidrato_necesario = palometa["carbohidratos"]["min"]
-    else:
-        return jsonify({"success": False, "message": "Peso objetivo inválido"}), 400
-
-    # Calcular biomasa y alimento diario
-    biomasa = cantidad_peces * peso_promedio
-    alimento_diario = biomasa * 0.03
-
-    # Calcular gramos necesarios de cada nutriente
-    proteinas_necesarias = proteina_necesaria * alimento_diario
-    lipidos_necesarios = lipido_necesario * alimento_diario
-    carbohidratos_necesarios = carbohidrato_necesario * alimento_diario
-    print("Proteinas: ", proteinas_necesarias)
-    print("Lipidos: ", lipidos_necesarios)
-    print("Carbo: ", carbohidratos_necesarios)
-    # Actualizar los valores de la levadura en la base de datos
-    db.ingredientes.update_one(
-        {"nombre": "Levadura"},
-        {"$set": {
-            "proteinas": proteina_actual,
-            "lipidos": lipido_actual,
-            "carbohidratos": carbohidrato_actual,
-            "stock": levadura_gramos
-        }}
-    )
+    # Calcular los nutrientes necesarios para la especie
+    try:
+        nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days)
+        print(nutrientes)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
     # Obtener todos los ingredientes de la base de datos
     ingredientes = {ing["nombre"]: ing for ing in db.ingredientes.find()}
 
-    # Crear el problema de minimización de costo
-    problema = pulp.LpProblem("Minimizar_Costo_Alimento", pulp.LpMinimize)
+    # Resolver el problema de minimización de costos
+    ingredientes_usados, resultados, porcentaje_levadura, deficiencia_proteinas, deficiencia_lipidos, deficiencia_carbohidratos = resolver_problema_minimizacion(ingredientes, nutrientes)
 
-    # Definir variables
-    variables = {ing.replace(" ", "_"): pulp.LpVariable(ing.replace(" ", "_"), lowBound=0, upBound=ingredientes[ing]["stock"]) for ing in ingredientes}
-
-    # Función objetivo
-    problema += pulp.lpSum([ingredientes[ing]["coste"] * variables[ing.replace(" ", "_")] for ing in ingredientes])
-
-    # Restricciones nutricionales básicas
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios
-
-    # Rango tolerable de nutrientes
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= proteinas_necesarias * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= lipidos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= carbohidratos_necesarios * 0.9
-
-    # Restricción de cantidad total de la mezcla (variabilidad)
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) >= alimento_diario * 0.98
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) <= alimento_diario * 1.02
-
-    # Restricciones específicas de levadura (volumen) y stock ajustadas
-    problema += variables["Levadura"] >= 0.001 * alimento_diario  # Min 0.1%
-    problema += variables["Levadura"] <= min(ingredientes["Levadura"]["stock"], 0.01 * alimento_diario)  # Máx 1% y stock disponible
-
-    # Resolver el problema
-    problema.solve()
-
-    # Obtener resultados y valores intermedios
-    resultados = {var.name: var.varValue for var in variables.values()}
-    # Filtrar solo los ingredientes utilizados
-    ingredientes_usados = []
-    for ing, datos in ingredientes.items():
-        cantidad_usada = resultados.get(ing.replace(" ", "_"), 0)
-        if cantidad_usada > 0:
-            ingrediente_info = {
-                "nombre": ing,
-                "cantidad_gramos": cantidad_usada,
-                "stock_usado": cantidad_usada > datos["stock"],
-                "stock_restante": max(0, datos["stock"] - cantidad_usada)
-            }
-            if cantidad_usada > datos["stock"]:
-                gramos_adicionales = cantidad_usada - datos["stock"]
-                ingrediente_info["cantidad_adicional"] = gramos_adicionales
-                ingrediente_info["mensaje_adicional"] = f'Se necesitan {gramos_adicionales:.4f} gramos adicionales de {ing} para cumplir con la cantidad necesaria.'
-            ingredientes_usados.append(ingrediente_info)
-            # Descontar del stock del ingrediente
-            db.ingredientes.update_one(
-                {"nombre": ing},
-                {"$inc": {"stock": -cantidad_usada}}
-            )
-
-    # Calcular porcentaje de levadura utilizado
-    levadura_usada = resultados.get("Levadura", 0)
-    if levadura_usada > 0:
-        porcentaje_levadura = (levadura_usada * 100) / ingredientes["Levadura"]["stock"]
-    else:
-        porcentaje_levadura = 0
-
-    # Verificar deficiencias en nutrientes
-    deficiencia_proteinas = max(0, proteinas_necesarias - sum(ingredientes[ing]["proteinas"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_lipidos = max(0, lipidos_necesarios - sum(ingredientes[ing]["lipidos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_carbohidratos = max(0, carbohidratos_necesarios - sum(ingredientes[ing]["carbohidratos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-
-    # Preparar respuesta
+    # Preparar la respuesta
     respuesta = {
         "success": True,
         "ingredientes_usados": ingredientes_usados,
-        "proteina_necesaria_total": proteinas_necesarias,
-        "lipido_necesario_total": lipidos_necesarios,
-        "carbohidrato_necesario_total": carbohidratos_necesarios,
+        "resultados": resultados,
         "porcentaje_levadura": porcentaje_levadura,
         "deficiencia_proteinas": deficiencia_proteinas,
         "deficiencia_lipidos": deficiencia_lipidos,
@@ -525,137 +323,36 @@ def corvina_food():
     data = request.json
 
     # Obtener datos del formulario
+    nombre_especie = data.get('nombre_especie')
     etapa = data.get('etapa')
     cantidad_peces = int(data.get('cantidad_peces'))
     peso_promedio = float(data.get('peso_promedio'))
     peso_objetivo = data.get('peso_objetivo')
-    levadura_gramos = float(data.get('levadura_gramos'))
-    proteina_actual = float(data.get('proteina_actual'))
-    lipido_actual = float(data.get('lipido_actual'))
-    carbohidrato_actual = float(data.get('carbohidrato_actual'))
+    cantidad_levadura = float(data.get('levadura_gramos'))
+    cant_proteina = float(data.get('proteina_actual'))
+    cant_lipidos = float(data.get('lipido_actual'))
+    cant_carbohidratos = float(data.get('carbohidrato_actual'))
+    porcentaje_biomasa = float(data.get('porcentaje_biomasa'))  # Nuevo campo
+    days = int(data.get('dias'))
 
-    # Obtener los valores de proteína, lípidos y carbohidratos para la etapa
-    corvina = db.peces.find_one({"nombre": "Corvina", "etapa": etapa})
-
-    if not corvina:
-        return jsonify({"success": False, "message": "Etapa no encontrada"}), 404
-
-    if peso_objetivo == "aumentar":
-        proteina_necesaria = corvina["proteina"]["max"]
-        lipido_necesario = corvina["lipidos"]["max"]
-        carbohidrato_necesario = corvina["carbohidratos"]["max"]
-    elif peso_objetivo == "mantener":
-        proteina_necesaria = corvina["proteina"]["mantener"]
-        lipido_necesario = corvina["lipidos"]["mantener"]
-        carbohidrato_necesario = corvina["carbohidratos"]["mantener"]
-    elif peso_objetivo == "disminuir":
-        proteina_necesaria = corvina["proteina"]["min"]
-        lipido_necesario = corvina["lipidos"]["min"]
-        carbohidrato_necesario = corvina["carbohidratos"]["min"]
-    else:
-        return jsonify({"success": False, "message": "Peso objetivo inválido"}), 400
-
-    # Calcular biomasa y alimento diario
-    biomasa = cantidad_peces * peso_promedio
-    alimento_diario = biomasa * 0.03
-
-    # Calcular gramos necesarios de cada nutriente
-    proteinas_necesarias = proteina_necesaria * alimento_diario
-    lipidos_necesarios = lipido_necesario * alimento_diario
-    carbohidratos_necesarios = carbohidrato_necesario * alimento_diario
-    print("Proteinas: ", proteinas_necesarias)
-    print("Lipidos: ", lipidos_necesarios)
-    print("Carbo: ", carbohidratos_necesarios)
-    # Actualizar los valores de la levadura en la base de datos
-    db.ingredientes.update_one(
-        {"nombre": "Levadura"},
-        {"$set": {
-            "proteinas": proteina_actual,
-            "lipidos": lipido_actual,
-            "carbohidratos": carbohidrato_actual,
-            "stock": levadura_gramos
-        }}
-    )
+    # Calcular los nutrientes necesarios para la especie
+    try:
+        nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days)
+        print(nutrientes)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
     # Obtener todos los ingredientes de la base de datos
     ingredientes = {ing["nombre"]: ing for ing in db.ingredientes.find()}
 
-    # Crear el problema de minimización de costo
-    problema = pulp.LpProblem("Minimizar_Costo_Alimento", pulp.LpMinimize)
+    # Resolver el problema de minimización de costos
+    ingredientes_usados, resultados, porcentaje_levadura, deficiencia_proteinas, deficiencia_lipidos, deficiencia_carbohidratos = resolver_problema_minimizacion(ingredientes, nutrientes)
 
-    # Definir variables
-    variables = {ing.replace(" ", "_"): pulp.LpVariable(ing.replace(" ", "_"), lowBound=0, upBound=ingredientes[ing]["stock"]) for ing in ingredientes}
-
-    # Función objetivo
-    problema += pulp.lpSum([ingredientes[ing]["coste"] * variables[ing.replace(" ", "_")] for ing in ingredientes])
-
-    # Restricciones nutricionales básicas
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios
-
-    # Rango tolerable de nutrientes
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= proteinas_necesarias * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["proteinas"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= proteinas_necesarias * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= lipidos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["lipidos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= lipidos_necesarios * 0.9
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) <= carbohidratos_necesarios * 1.1
-    problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= carbohidratos_necesarios * 0.9
-
-    # Restricción de cantidad total de la mezcla (variabilidad)
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) >= alimento_diario * 0.98
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) <= alimento_diario * 1.02
-
-    # Restricciones específicas de levadura (volumen) y stock ajustadas
-    problema += variables["Levadura"] >= 0.001 * alimento_diario  # Min 0.1%
-    problema += variables["Levadura"] <= min(ingredientes["Levadura"]["stock"], 0.01 * alimento_diario)  # Máx 1% y stock disponible
-
-    # Resolver el problema
-    problema.solve()
-
-    # Obtener resultados y valores intermedios
-    resultados = {var.name: var.varValue for var in variables.values()}
-    # Filtrar solo los ingredientes utilizados
-    ingredientes_usados = []
-    for ing, datos in ingredientes.items():
-        cantidad_usada = resultados.get(ing.replace(" ", "_"), 0)
-        if cantidad_usada > 0:
-            ingrediente_info = {
-                "nombre": ing,
-                "cantidad_gramos": cantidad_usada,
-                "stock_usado": cantidad_usada > datos["stock"],
-                "stock_restante": max(0, datos["stock"] - cantidad_usada)
-            }
-            if cantidad_usada > datos["stock"]:
-                gramos_adicionales = cantidad_usada - datos["stock"]
-                ingrediente_info["cantidad_adicional"] = gramos_adicionales
-                ingrediente_info["mensaje_adicional"] = f'Se necesitan {gramos_adicionales:.4f} gramos adicionales de {ing} para cumplir con la cantidad necesaria.'
-            ingredientes_usados.append(ingrediente_info)
-            # Descontar del stock del ingrediente
-            db.ingredientes.update_one(
-                {"nombre": ing},
-                {"$inc": {"stock": -cantidad_usada}}
-            )
-
-    # Calcular porcentaje de levadura utilizado
-    levadura_usada = resultados.get("Levadura", 0)
-    if levadura_usada > 0:
-        porcentaje_levadura = (levadura_usada * 100) / ingredientes["Levadura"]["stock"]
-    else:
-        porcentaje_levadura = 0
-
-    # Verificar deficiencias en nutrientes
-    deficiencia_proteinas = max(0, proteinas_necesarias - sum(ingredientes[ing]["proteinas"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_lipidos = max(0, lipidos_necesarios - sum(ingredientes[ing]["lipidos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-    deficiencia_carbohidratos = max(0, carbohidratos_necesarios - sum(ingredientes[ing]["carbohidratos"] * resultados.get(ing.replace(" ", "_"), 0) for ing in ingredientes))
-
-    # Preparar respuesta
+    # Preparar la respuesta
     respuesta = {
         "success": True,
         "ingredientes_usados": ingredientes_usados,
-        "proteina_necesaria_total": proteinas_necesarias,
-        "lipido_necesario_total": lipidos_necesarios,
-        "carbohidrato_necesario_total": carbohidratos_necesarios,
+        "resultados": resultados,
         "porcentaje_levadura": porcentaje_levadura,
         "deficiencia_proteinas": deficiencia_proteinas,
         "deficiencia_lipidos": deficiencia_lipidos,
@@ -665,186 +362,74 @@ def corvina_food():
 
     return jsonify(respuesta), 200
 
-@api.route('/congrio-edit', methods=['GET', 'PUT'])
+
+@api.route('/congrio-edit', methods=['GET'])
 def get_congrio_data():
     try:
-        if request.method == 'GET':
-            # Filtrar los datos de los peces que son congrio
-            congrio_data = list(db.peces.find({"nombre": "Congrio"}))
-            # Convertir ObjectId a cadena de texto para la respuesta JSON
-            for data in congrio_data:
-                data['_id'] = str(data['_id'])
-            return jsonify(congrio_data), 200
-        elif request.method == 'PUT':
-            data = request.json
-            # Verificar que el ID está presente
-            if '_id' not in data:
-                return jsonify({"success": False, "message": "ID no proporcionado"}), 400
-
-            # Extraer el ID
-            id = data['_id']
-            del data['_id']
-
-            # Convertir los campos a float si es posible
-            update_fields = {}
-            for key, value in data.items():
-                if isinstance(value, dict):
-                    for sub_key, sub_value in value.items():
-                        try:
-                            update_fields[f"{key}.{sub_key}"] = float(sub_value)
-                        except ValueError:
-                            update_fields[f"{key}.{sub_key}"] = sub_value
-                else:
-                    try:
-                        update_fields[key] = float(value)
-                    except ValueError:
-                        update_fields[key] = value
-
-            # Actualizar solo los campos específicos en la base de datos
-            result = db.peces.update_one({"_id": ObjectId(id)}, {"$set": update_fields})
-
-            if result.matched_count == 0:
-                return jsonify({"success": False, "message": "No se encontró el registro a actualizar"}), 404
-
-            return jsonify({"success": True, "message": "Datos actualizados correctamente"}), 200
+        congrio_data = list(db.peces.find({"nombre": "Congrio"}))
+        for data in congrio_data:
+            data['_id'] = str(data['_id'])
+        return jsonify(congrio_data), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
-    
-@api.route('/palometa-edit', methods=['GET', 'PUT'])
-def get_palometa_data():
+
+@api.route('/pez/<id>', methods=['GET', 'PUT'])
+def edit_pez(id):
     try:
         if request.method == 'GET':
-            # Filtrar los datos de los peces que son palometa
-            palometa_data = list(db.peces.find({"nombre": "Palometa"}))
-            # Convertir ObjectId a cadena de texto para la respuesta JSON
-            for data in palometa_data:
-                data['_id'] = str(data['_id'])
-            return jsonify(palometa_data), 200
+            pez = db.peces.find_one({"_id": ObjectId(id)})
+            if not pez:
+                return jsonify({"success": False, "message": "No se encontró el pez"}), 404
+            pez['_id'] = str(pez['_id'])  # Convertir _id a string para evitar errores en JSON
+            return jsonify(pez), 200
+
         elif request.method == 'PUT':
             data = request.json
-            # Verificar que el ID está presente
-            if '_id' not in data:
-                return jsonify({"success": False, "message": "ID no proporcionado"}), 400
+            data.pop('_id', None)  # Evitar modificar el _id
 
-            # Extraer el ID
-            id = data['_id']
-            del data['_id']
+            convert_and_process(data)  # Procesa el diccionario completo
 
-            # Convertir los campos a float si es posible
-            update_fields = {}
-            for key, value in data.items():
-                if isinstance(value, dict):
-                    for sub_key, sub_value in value.items():
-                        try:
-                            update_fields[f"{key}.{sub_key}"] = float(sub_value)
-                        except ValueError:
-                            update_fields[f"{key}.{sub_key}"] = sub_value
-                else:
-                    try:
-                        update_fields[key] = float(value)
-                    except ValueError:
-                        update_fields[key] = value
-
-            # Actualizar solo los campos específicos en la base de datos
-            result = db.peces.update_one({"_id": ObjectId(id)}, {"$set": update_fields})
+            result = db.peces.update_one({"_id": ObjectId(id)}, {"$set": data})
 
             if result.matched_count == 0:
-                return jsonify({"success": False, "message": "No se encontró el registro a actualizar"}), 404
+                return jsonify({"success": False, "message": "No se encontró el pez a actualizar"}), 404
+            print(db.peces.find_one({"_id": ObjectId(id)}))
 
             return jsonify({"success": True, "message": "Datos actualizados correctamente"}), 200
+
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500    
+        print(f"⚠️ Error en PUT /pez/{id}: {e}")  # Mostrar error en la terminal
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @api.route('/cojinova-edit', methods=['GET', 'PUT'])
 def get_cojinova_data():
     try:
-        if request.method == 'GET':
-            # Filtrar los datos de los peces que son cojinova
-            cojinova_data = list(db.peces.find({"nombre": "Cojinova"}))
-            # Convertir ObjectId a cadena de texto para la respuesta JSON
-            for data in cojinova_data:
-                data['_id'] = str(data['_id'])
-            return jsonify(cojinova_data), 200
-        elif request.method == 'PUT':
-            data = request.json
-            # Verificar que el ID está presente
-            if '_id' not in data:
-                return jsonify({"success": False, "message": "ID no proporcionado"}), 400
-
-            # Extraer el ID
-            id = data['_id']
-            del data['_id']
-
-            # Convertir los campos a float si es posible
-            update_fields = {}
-            for key, value in data.items():
-                if isinstance(value, dict):
-                    for sub_key, sub_value in value.items():
-                        try:
-                            update_fields[f"{key}.{sub_key}"] = float(sub_value)
-                        except ValueError:
-                            update_fields[f"{key}.{sub_key}"] = sub_value
-                else:
-                    try:
-                        update_fields[key] = float(value)
-                    except ValueError:
-                        update_fields[key] = value
-
-            # Actualizar solo los campos específicos en la base de datos
-            result = db.peces.update_one({"_id": ObjectId(id)}, {"$set": update_fields})
-
-            if result.matched_count == 0:
-                return jsonify({"success": False, "message": "No se encontró el registro a actualizar"}), 404
-
-            return jsonify({"success": True, "message": "Datos actualizados correctamente"}), 200
+        cojinova_data = list(db.peces.find({"nombre": "Cojinova"}))
+        for data in cojinova_data:
+            data['_id'] = str(data['_id'])
+        return jsonify(cojinova_data), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
-
+    
 @api.route('/corvina-edit', methods=['GET', 'PUT'])
 def get_corvina_data():
     try:
-        if request.method == 'GET':
-            # Filtrar los datos de los peces que son corvina
-            corvina_data = list(db.peces.find({"nombre": "Corvina"}))
-            # Convertir ObjectId a cadena de texto para la respuesta JSON
-            for data in corvina_data:
-                data['_id'] = str(data['_id'])
-            return jsonify(corvina_data), 200
-        elif request.method == 'PUT':
-            data = request.json
-            # Verificar que el ID está presente
-            if '_id' not in data:
-                return jsonify({"success": False, "message": "ID no proporcionado"}), 400
-
-            # Extraer el ID
-            id = data['_id']
-            del data['_id']
-
-            # Convertir los campos a float si es posible
-            update_fields = {}
-            for key, value in data.items():
-                if isinstance(value, dict):
-                    for sub_key, sub_value in value.items():
-                        try:
-                            update_fields[f"{key}.{sub_key}"] = float(sub_value)
-                        except ValueError:
-                            update_fields[f"{key}.{sub_key}"] = sub_value
-                else:
-                    try:
-                        update_fields[key] = float(value)
-                    except ValueError:
-                        update_fields[key] = value
-
-            # Actualizar solo los campos específicos en la base de datos
-            result = db.peces.update_one({"_id": ObjectId(id)}, {"$set": update_fields})
-
-            if result.matched_count == 0:
-                return jsonify({"success": False, "message": "No se encontró el registro a actualizar"}), 404
-
-            return jsonify({"success": True, "message": "Datos actualizados correctamente"}), 200
+        corvina_data = list(db.peces.find({"nombre": "Corvina"}))
+        for data in corvina_data:
+            data['_id'] = str(data['_id'])
+        return jsonify(corvina_data), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+@api.route('/palometa-edit', methods=['GET', 'PUT'])
+def get_palometa_data():
+    try:
+        palometa_data = list(db.peces.find({"nombre": "Palometa"}))
+        for data in palometa_data:
+            data['_id'] = str(data['_id'])
+        return jsonify(palometa_data), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @api.route('/ingredientes', methods=['GET'])
 def get_ingredientes():
