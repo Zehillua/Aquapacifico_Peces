@@ -1,22 +1,31 @@
 .congrioEditContainer {
+  margin: 20px;
   padding: 20px;
-  background-color: white;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  max-width: 1000px;
-  margin: auto;
-  margin-top: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  text-align: center;
+  color: #333;
+}
+
+.saveMessage {
+  margin: 10px 0;
+  padding: 10px;
+  color: green;
+  text-align: center;
 }
 
 .tableContainer {
-  max-height: 400px; /* Ajusta según sea necesario */
-  overflow-y: auto;
+  overflow-x: auto;
+  margin: 20px 0;
 }
 
 .congrioEditTable {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 20px;
 }
 
 .congrioEditTable th, .congrioEditTable td {
@@ -27,6 +36,7 @@
 
 .congrioEditTable th {
   background-color: #f2f2f2;
+  color: #333;
 }
 
 .congrioEditTable td input {
@@ -36,56 +46,52 @@
 }
 
 .nestedField {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 5px;
+  margin: 5px 0;
 }
 
 .nestedField label {
-  font-size: 0.8rem;
-  margin-bottom: 2px;
+  display: block;
+  margin-bottom: 3px;
+  font-weight: bold;
 }
 
-.congrioEditTable button {
-  background-color: #007bff;
-  color: white;
+.stageItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 10px 0;
+  background-color: #f9f9f9;
+}
+
+.stageItem button {
   padding: 5px 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s;
 }
 
-.congrioEditTable button:hover {
+.stageItem button:hover {
   background-color: #0056b3;
 }
 
-.congrioEditTable button[disabled] {
-  background-color: #a9a9a9;
-  cursor: not-allowed;
-}
-
-.saveMessage {
-  margin-top: 10px;
-  padding: 10px;
-  background-color: #dff0d8;
-  color: #3c763d;
-  border: 1px solid #d6e9c6;
-  border-radius: 5px;
-  text-align: center;
-}
 .backButton {
-  margin-top: 40px; /* Ajustar margen superior */
+  display: block;
+  margin: 20px auto;
   padding: 10px 20px;
   border: none;
-  border-radius: 5px;
-  background-color: #6c757d; /* Cambiar color del botón a gris */
+  border-radius: 4px;
+  background-color: #6c757d;
   color: white;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.3s ease;
+  transition: background-color 0.3s;
 }
 
 .backButton:hover {
-  background-color: #5a6268; /* Color gris oscuro al pasar el ratón */
-  transform: translateY(-2px); /* Elevar botón al pasar el ratón */
+  background-color: #5a6268;
 }

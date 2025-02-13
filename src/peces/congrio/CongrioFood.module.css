@@ -61,36 +61,6 @@ html, body {
   flex: 1 1 45%; /* Ajusta la flexibilidad para que haya dos columnas */
 }
 
-.congrioFoodFormGroup label {
-  margin-bottom: 5px;
-}
-
-.congrioFoodFormGroup input, .congrioFoodFormGroup select {
-  padding: 8px; /* Reduce el padding */
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 14px; /* Reduce el tamaño de la fuente */
-}
-
-.congrioFoodButton {
-  padding: 10px 15px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  flex: 1 1 100%; /* Permite que el botón ocupe toda la fila */
-}
-
-.congrioFoodButton:disabled {
-  background-color: #999;
-  cursor: not-allowed;
-}
-
-.congrioFoodButton:hover:not(:disabled) {
-  background-color: #0056b3;
-}
 
 .congrioFoodBackButton {
   margin-top: 10px;

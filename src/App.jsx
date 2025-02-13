@@ -20,6 +20,7 @@ import CojinovaEdit from './peces/cojinova/CojinovaEdit'; // Ajustar la ruta de 
 import Corvina from './peces/corvina/Corvina';
 import CorvinaFood from './peces/corvina/CorvinaFood';
 import CorvinaEdit from './peces/corvina/CorvinaEdit'; // Ajustar la ruta de Corvina
+import EditPeces from './peces/edit/EditPeces'; // Asegúrate de ajustar la ruta de EditPeces
 import ProtectedRoute from './components/ProtectedRoute';
 import FontSizeControl from './components/FontSizeControl';
 
@@ -41,6 +42,7 @@ const App = () => {
             <Route path="/congrio" element={<ProtectedRoute><Congrio /></ProtectedRoute>} />
             <Route path="/congrio-food" element={<ProtectedRoute><CongrioFood /></ProtectedRoute>} />
             <Route path="/congrio-edit" element={<ProtectedRoute><CongrioEdit /></ProtectedRoute>} />
+            <Route path="/edit-peces/:id" element={<ProtectedRoute><EditPeces /></ProtectedRoute>} />
             <Route path="/palometa" element={<ProtectedRoute><Palometa /></ProtectedRoute>} />
             <Route path="/palometa-food" element={<ProtectedRoute><PalometaFood /></ProtectedRoute>} />
             <Route path="/palometa-edit" element={<ProtectedRoute><PalometaEdit /></ProtectedRoute>} />

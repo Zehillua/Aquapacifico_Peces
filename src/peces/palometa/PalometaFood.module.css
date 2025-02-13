@@ -45,7 +45,7 @@ html, body {
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   width: 45%; /* Ajusta el ancho del formulario */
-  height: 70%;
+  height: 80%;
   overflow-y: auto; /* Permite el desplazamiento vertical si es necesario */
 }
 
@@ -61,36 +61,6 @@ html, body {
   flex: 1 1 45%; /* Ajusta la flexibilidad para que haya dos columnas */
 }
 
-.palometaFoodFormGroup label {
-  margin-bottom: 5px;
-}
-
-.palometaFoodFormGroup input, .palometaFoodFormGroup select {
-  padding: 8px; /* Reduce el padding */
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 14px; /* Reduce el tamaño de la fuente */
-}
-
-.palometaFoodButton {
-  padding: 10px 15px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  flex: 1 1 100%; /* Permite que el botón ocupe toda la fila */
-}
-
-.palometaFoodButton:disabled {
-  background-color: #999;
-  cursor: not-allowed;
-}
-
-.palometaFoodButton:hover:not(:disabled) {
-  background-color: #0056b3;
-}
 
 .palometaFoodBackButton {
   margin-top: 10px;

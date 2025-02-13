@@ -5,6 +5,7 @@ import logo from '../../assets/LogoAquaPacifico.jpg'; // Asegúrate de ajustar l
 
 const PalometaFood = () => {
   const navigate = useNavigate();
+  const [speciesName, setSpeciesName] = useState('');
   const [stage, setStage] = useState('');
   const [fishCount, setFishCount] = useState('');
   const [averageWeight, setAverageWeight] = useState('');
@@ -13,6 +14,8 @@ const PalometaFood = () => {
   const [proteinPercentage, setProteinPercentage] = useState('');
   const [lipidPercentage, setLipidPercentage] = useState('');
   const [carbohydratePercentage, setCarbohydratePercentage] = useState('');
+  const [biomassPercentage, setBiomassPercentage] = useState(''); 
+  const [days, setDays] = useState(''); // Nuevo estado para la cantidad de días
   const [stages, setStages] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [yeastPercentage, setYeastPercentage] = useState(0);
@@ -40,12 +43,20 @@ const PalometaFood = () => {
     fetchStages();
   }, []);
 
+  useEffect(() => {
+    const species = localStorage.getItem('nombre_especie');
+    if (species) {
+      setSpeciesName(species);
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setIsLoading(true);
 
     const formData = {
+      nombre_especie: speciesName,
       etapa: stage,
       cantidad_peces: fishCount,
       peso_promedio: averageWeight,
@@ -53,7 +64,9 @@ const PalometaFood = () => {
       levadura_gramos: yeastAmount,
       proteina_actual: proteinPercentage,
       lipido_actual: lipidPercentage,
-      carbohidrato_actual: carbohydratePercentage
+      carbohidrato_actual: carbohydratePercentage,
+      porcentaje_biomasa: biomassPercentage,
+      dias: days // Nuevo campo
     };
 
     try {
@@ -202,6 +215,27 @@ const PalometaFood = () => {
                 required
               />
             </div>
+            <div className={styles.palometaFoodFormGroup}>
+              <label htmlFor="biomassPercentage">% de biomasa:</label>
+              <input
+                type="number"
+                step="0.01"
+                id="biomassPercentage"
+                value={biomassPercentage}
+                onChange={(e) => setBiomassPercentage(e.target.value)}
+                required
+              />
+            </div>
+            <div className={styles.palometaFoodFormGroup}>
+              <label htmlFor="days">Para cuántos días:</label>
+              <input
+                type="number"
+                id="days"
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                required
+              />
+            </div>
             <button type="submit" className={styles.palometaFoodButton} disabled={isLoading}>
               {isLoading ? 'Cargando...' : 'Enviar'}
             </button>
@@ -216,57 +250,56 @@ const PalometaFood = () => {
           </button>
         </div>
         <div className={styles.palometaFoodDetails}>
-          <div className={styles.palometaFoodDetailBox}>
-            <h3>% de Levadura</h3>
-            <div className={`${styles.percentageBar} ${getPercentageBarClass(Math.min(yeastPercentage, 100))}`} 
-                 style={{ width: `${Math.min(yeastPercentage, 100)}%` }}>
+        <div className={styles.palometaFoodDetailBox}>
+              <h3>% de Levadura</h3>
+              <div className={`${styles.percentageBar} ${getPercentageBarClass(Math.min(yeastPercentage, 100))}`}
+                   style={{ width: `${Math.min(yeastPercentage, 100)}%` }}>
+              </div>
+              <p>{yeastPercentage.toFixed(2)}%</p>
             </div>
-            <p>{yeastPercentage.toFixed(2)}%</p>
-          </div>
-          <div className={styles.palometaFoodDetailBox}>
-            <h3>Ingredientes y Cantidades</h3>
-            {ingredients.length > 0 ? (
-              ingredients.map((ingredient, index) => (
-                <p key={index}>{ingredient.nombre}: {ingredient.cantidad_gramos} gramos</p>
-              ))
-            ) : (
-              <p>No hay ingredientes calculados.</p>
-            )}
-          </div>
-          <div className={styles.palometaFoodDetailBox}>
-            <h3>Listado de Ingredientes Usados y Stock Restante</h3>
-            {ingredients.length > 0 ? (
-              <table className={styles.ingredientsTable}>
-                <thead>
-                  <tr>
-                    <th>Ingrediente</th>
-                    <th>Cantidad Usada (gramos)</th>
-                    <th>Stock Restante (gramos)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                {ingredients.map((ingredient, index) => (
-                    <tr key={index}>
-                      <td>{ingredient.nombre}</td>
-                      <td>{ingredient.cantidad_gramos}</td>
-                      <td>
-                        {ingredient.stock_usado
-                          ? `Stock insuficiente por ${ingredient.cantidad_adicional.toFixed(2)} gramos`
-                          : ingredient.stock_restante.toFixed(2)}
-                      </td>
+            <div className={styles.palometaFoodDetailBox}>
+              <h3>Ingredientes y Cantidades</h3>
+              {ingredients.length > 0 ? (
+                ingredients.map((ingredient, index) => (
+                  <p key={index}>{ingredient.nombre}: {ingredient.cantidad_gramos} gramos</p>
+                ))
+              ) : (
+                <p>No hay ingredientes calculados.</p>
+              )}
+            </div>
+            <div className={styles.palometaFoodDetailBox}>
+              <h3>Listado de Ingredientes Usados y Stock Restante</h3>
+              {ingredients.length > 0 ? (
+                <table className={styles.ingredientsTable}>
+                  <thead>
+                    <tr>
+                      <th>Ingrediente</th>
+                      <th>Cantidad Usada (gramos)</th>
+                      <th>Stock Restante (gramos)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p>No hay ingredientes calculados.</p>
-            )}
+                  </thead>
+                  <tbody>
+                    {ingredients.map((ingredient, index) => (
+                      <tr key={index}>
+                        <td>{ingredient.nombre}</td>
+                        <td>{ingredient.cantidad_gramos}</td>
+                        <td>
+                          {ingredient.stock_usado
+                            ? `Stock insuficiente por ${ingredient.cantidad_adicional.toFixed(2)} gramos`
+                            : ingredient.stock_restante.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No hay ingredientes calculados.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
   );
 };
 
 export default PalometaFood;
-
