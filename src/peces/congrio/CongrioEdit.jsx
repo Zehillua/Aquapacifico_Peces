@@ -7,25 +7,40 @@ const CongrioEdit = () => {
   const [congrioData, setCongrioData] = useState([]);
   const [isSaving, setIsSaving] = useState(false);  // Estado para controlar el guardado
   const [saveMessage, setSaveMessage] = useState('');  // Estado para el mensaje de guardado
+  const [error, setError] = useState(null);  // Estado para manejar errores
 
   useEffect(() => {
-    // Obtener los datos del congrio desde la API
     const fetchData = async () => {
+      const token = localStorage.getItem('token'); // Obtener el token almacenado
+      if (!token) {
+        console.error('Token no encontrado');
+        navigate('/login'); // Redirigir al login si no hay token
+        return;
+      }
+
       try {
-        const response = await fetch('http://localhost:5000/congrio-edit');
-        if (response.ok) {
-          const data = await response.json();
-          setCongrioData(data);
-        } else {
-          console.error('Error al obtener los datos:', response.statusText);
+        const response = await fetch('http://localhost:5000/congrio-edit', {
+          headers: {
+            'Authorization': token,  // Usando el token almacenado
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Permiso denegado');
         }
+        const data = await response.json();
+        setCongrioData(data);
       } catch (error) {
-        console.error('Error de red:', error);
+        console.error('Error al obtener los datos:', error);
+        setError(error.message);
       }
     };
 
     fetchData();
-  }, []);
+  }, [navigate]);
+
+  if (error) {
+    return <p>No tienes permisos para ver esta página.</p>; // Mostrar mensaje de error o redirigir
+  }
 
   // Mostrar las etapas del Congrio con un botón de "Editar"
   const renderStages = () => {

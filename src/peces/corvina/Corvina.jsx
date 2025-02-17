@@ -1,10 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Corvina.module.css'; // Asegúrate de que la ruta sea correcta
 import logo from '../../assets/LogoAquaPacifico.jpg'; // Asegúrate de que la ruta sea correcta
 
 const Corvina = () => {
   const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const token = localStorage.getItem('token'); // Obtener el token almacenado
+      if (!token) {
+        console.error('Token no encontrado');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/profile', {
+          headers: {
+            'Authorization': token,  // Usando el token almacenado
+          },
+        });
+        const data = await response.json();
+        if (data.success) {
+          setIsAdmin(data.user.is_admin);
+        }
+      } catch (error) {
+        console.error('Error al obtener el perfil del usuario:', error);
+      }
+    };
+
+    fetchUserRole();
+  }, []);
 
   return (
     <div className={styles.corvinaContainer}>
@@ -15,9 +42,11 @@ const Corvina = () => {
           <button className={styles.corvinaButton} onClick={() => navigate('/corvina-food')}>
             Alimentar
           </button>
-          <button className={styles.corvinaButton} onClick={() => navigate('/corvina-edit')}>
-            Editar datos
-          </button>
+          {isAdmin && (
+            <button className={styles.corvinaButton} onClick={() => navigate('/corvina-edit')}>
+              Editar datos
+            </button>
+          )}
         </div>
         <button className={styles.corvinaBackButton} onClick={() => navigate('/menuPeces')}>
           Volver

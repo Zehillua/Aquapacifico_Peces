@@ -9,30 +9,46 @@ const EditPeces = () => {
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);  // Estado para controlar el guardado
   const [showModal, setShowModal] = useState(false);  // Estado para controlar la ventana modal
+  const [error, setError] = useState(null);  // Estado para manejar errores
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const response = await fetch(`http://localhost:5000/pez/${id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setPezData(data);
-          setEditedData(data); // Inicializar los datos editados con los valores de la API
+      const token = localStorage.getItem('token'); // Obtener el token almacenado
+      if (!token) {
+        console.error('Token no encontrado');
+        navigate('/login'); // Redirigir al login si no hay token
+        return;
+      }
 
-          // Actualizar el título de la ventana central
-          if (data.nombre && data.etapa) {
-            document.title = `Editar datos ${data.nombre} ${data.etapa}`;
-          }
-        } else {
-          console.error('Error al obtener los datos:', response.statusText);
+      try {
+        const response = await fetch(`http://localhost:5000/pez/${id}`, {
+          headers: {
+            'Authorization': token,  // Usando el token almacenado
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Permiso denegado');
+        }
+        const data = await response.json();
+        setPezData(data);
+        setEditedData(data); // Inicializar los datos editados con los valores de la API
+
+        // Actualizar el título de la ventana central
+        if (data.nombre && data.etapa) {
+          document.title = `Editar datos ${data.nombre} ${data.etapa}`;
         }
       } catch (error) {
-        console.error('Error de red:', error);
+        console.error('Error al obtener los datos:', error);
+        setError(error.message);
       }
     };
 
     fetchData();
-  }, [id]);
+  }, [id, navigate]);
+
+  if (error) {
+    return <p>No tienes permisos para ver esta página.</p>; // Mostrar mensaje de error o redirigir
+  }
 
   useEffect(() => {
     if (pezData) {
@@ -63,11 +79,21 @@ const EditPeces = () => {
 
   const handleSave = async () => {
     setIsSaving(true); // Deshabilitar el botón de guardar
-
+  
     try {
+      const token = localStorage.getItem('token'); // Obtener el token almacenado
+      if (!token) {
+        console.error('Token no encontrado');
+        navigate('/login'); // Redirigir al login si no hay token
+        return;
+      }
+  
       const response = await fetch(`http://localhost:5000/pez/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token,  // Usando el token almacenado
+        },
         body: JSON.stringify(editedData)
       });
       if (response.ok) {
@@ -78,9 +104,10 @@ const EditPeces = () => {
     } catch (error) {
       console.error('Error de red:', error);
     }
-
+  
     setIsSaving(false); // Habilitar el botón de guardar nuevamente
   };
+  
 
   const handleConfirm = () => {
     if (pezData && pezData.nombre) {

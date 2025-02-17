@@ -6,6 +6,7 @@ const ListaPellets = () => {
   const navigate = useNavigate();
   const [ingredientes, setIngredientes] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');  // Estado para el mensaje del modal
   const [modalMode, setModalMode] = useState('add'); // 'add' o 'edit'
   const [currentIngrediente, setCurrentIngrediente] = useState({
     nombre: '',
@@ -18,9 +19,11 @@ const ListaPellets = () => {
   const [editId, setEditId] = useState(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetchIngredientes();
+    fetchUserRole();
   }, []);
 
   const fetchIngredientes = async () => {
@@ -30,6 +33,29 @@ const ListaPellets = () => {
       setIngredientes(data);
     } catch (error) {
       console.error('Error al obtener los ingredientes:', error);
+    }
+  };
+
+  const fetchUserRole = async () => {
+    const token = localStorage.getItem('token'); // Obtener el token almacenado
+    if (!token) {
+      console.error('Token no encontrado');
+      navigate('/login'); // Redirigir al login si no hay token
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/profile', {
+        headers: {
+          'Authorization': token, // Usando el token almacenado
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setIsAdmin(data.user.is_admin);
+      }
+    } catch (error) {
+      console.error('Error al obtener el perfil del usuario:', error);
     }
   };
 
@@ -60,12 +86,26 @@ const ListaPellets = () => {
   };
 
   const handleDelete = async () => {
+    const token = localStorage.getItem('token'); // Obtener el token almacenado
+    if (!token) {
+      console.error('Token no encontrado');
+      navigate('/login'); // Redirigir al login si no hay token
+      return;
+    }
+
     try {
       await fetch(`http://localhost:5000/ingredientes/${deleteId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': token,  // Usando el token almacenado
+        },
       });
       fetchIngredientes();
       setShowConfirmDelete(false);
+      setModalMessage('Ingrediente eliminado correctamente');
+      setTimeout(() => {
+        setShowModal(true);  // Mostrar la ventana modal con el mensaje de eliminación
+      }, 100);
     } catch (error) {
       console.error('Error al eliminar el ingrediente:', error);
     }
@@ -76,14 +116,29 @@ const ListaPellets = () => {
     const url = modalMode === 'add' ? 'http://localhost:5000/ingredientes' : `http://localhost:5000/ingredientes/${editId}`;
     const method = modalMode === 'add' ? 'POST' : 'PUT';
 
+    const token = localStorage.getItem('token'); // Obtener el token almacenado
+    if (!token) {
+      console.error('Token no encontrado');
+      navigate('/login'); // Redirigir al login si no hay token
+      return;
+    }
+
     try {
       await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token,  // Usando el token almacenado
+        },
         body: JSON.stringify(currentIngrediente),
       });
       fetchIngredientes();
-      setShowModal(false);
+      const message = modalMode === 'add' ? 'Ingrediente agregado correctamente' : 'Ingrediente actualizado correctamente';
+      setModalMessage(message);
+      setShowModal(false);  // Cerrar el formulario modal primero
+      setTimeout(() => {
+        setShowModal(true);  // Mostrar el mensaje de confirmación
+      }, 100);
     } catch (error) {
       console.error('Error al guardar el ingrediente:', error);
     }
@@ -98,7 +153,7 @@ const ListaPellets = () => {
     <div className={styles.listaPelletsContainer}>
       <h1>Lista de Ingredientes</h1>
       <button className={styles.backButton} onClick={() => navigate('/menuPrincipal')}>Volver</button>
-      <button className={styles.addButton} onClick={handleAdd}>+ Agregar</button>
+      {isAdmin && <button className={styles.addButton} onClick={handleAdd}>+ Agregar</button>}
       <div className={styles.tableContainer}>
         <table className={styles.ingredientesTable}>
           <thead>
@@ -109,7 +164,7 @@ const ListaPellets = () => {
               <th>Lípidos</th>
               <th>Carbohidratos</th>
               <th>Stock</th>
-              <th>Acciones</th>
+              {isAdmin && <th>Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -121,17 +176,19 @@ const ListaPellets = () => {
                 <td>{ingrediente.lipidos}</td>
                 <td>{ingrediente.carbohidratos}</td>
                 <td>{ingrediente.stock}</td>
-                <td>
-                  <button className={styles.actionButton} onClick={() => handleEdit(ingrediente._id)}>Editar</button>
-                  <button className={styles.actionButton} onClick={() => handleConfirmDelete(ingrediente._id)}>Eliminar</button>
-                </td>
+                {isAdmin && (
+                  <td>
+                    <button className={styles.actionButton} onClick={() => handleEdit(ingrediente._id)}>Editar</button>
+                    <button className={styles.actionButton} onClick={() => handleConfirmDelete(ingrediente._id)}>Eliminar</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {showModal && (
+      {!modalMessage && showModal && (
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h2>{modalMode === 'add' ? 'Agregar Ingrediente' : 'Editar Ingrediente'}</h2>
@@ -149,8 +206,17 @@ const ListaPellets = () => {
               <label>Stock:</label>
               <input type="number" name="stock" value={currentIngrediente.stock} onChange={handleChange} required />
               <button type="submit">Guardar</button>
-              <button type="button" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button type="button" onClick={() => { setShowModal(false); setModalMessage(''); }}>Cancelar</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {modalMessage && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <h2>{modalMessage}</h2>
+            <button onClick={() => { setShowModal(false); setModalMessage(''); }}>Cerrar</button>
           </div>
         </div>
       )}
