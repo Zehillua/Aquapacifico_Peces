@@ -167,3 +167,4 @@ def convert_and_process(data):
                 data[key] = float(value)  # Asegurar que los enteros también sean float
             elif isinstance(value, str) and value.replace('.', '', 1).isdigit():
                 data[key] = float(value)  # Convertir strings numéricos en float
+

@@ -4,8 +4,10 @@ from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from email.message import EmailMessage
+from functools import wraps
 import smtplib
 import pulp
+from werkzeug.security import generate_password_hash, check_password_hash
 import ssl
 import jwt
 import random
@@ -24,24 +26,57 @@ smtp_server = os.getenv('SMTP_SERVER')
 smtp_port = int(os.getenv('SMTP_PORT'))
 reset_codes = {}  # Almacenará temporalmente los códigos de restablecimiento
 
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"success": False, "message": "Token faltante"}), 403
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            current_user = db.usuarios.find_one({"_id": ObjectId(data['user_id'])})
+            if not current_user:
+                return jsonify({"success": False, "message": "Usuario no encontrado"}), 403
+        except jwt.ExpiredSignatureError:
+            return jsonify({"success": False, "message": "Token expirado"}), 403
+        except jwt.InvalidTokenError:
+            return jsonify({"success": False, "message": "Token inválido"}), 403
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+def check_admin(f):
+    @wraps(f)
+    def decorated_function(current_user, *args, **kwargs):
+        if not current_user.get('is_admin'):
+            return jsonify({"success": False, "message": "Permiso denegado, solo para administradores"}), 403
+        return f(current_user, *args, **kwargs)
+    return decorated_function
+
 # Ruta para registrar un nuevo usuario
 @api.route('/register', methods=['POST'])
 def register_user():
     data = request.json
-    # Verificar que todos los campos requeridos están presentes
     if not all(key in data for key in ('nombre', 'correo', 'cargo', 'password', 'confirmPassword')):
         return jsonify({"success": False, "message": "Faltan campos obligatorios"}), 400
 
     if data['password'] != data['confirmPassword']:
         return jsonify({"success": False, "message": "Las contraseñas no coinciden"}), 400
 
+    hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+    
+    # Verificar si el correo es el del administrador
+    is_admin = data['correo'] == 'katherine.alveal@aquapacifico.cl' or 'miguelpradenas@hotmail.com'  # Cambia esto al correo del administrador real
+    
     result = db.usuarios.insert_one({
         "nombre": data.get('nombre'),
         "correo": data.get('correo'),
         "cargo": data.get('cargo'),
-        "password": data.get('password')
+        "password": hashed_password,
+        "is_admin": is_admin
     })
     return jsonify({"success": True, "inserted_id": str(result.inserted_id)})
+
 
 # Ruta para iniciar sesión
 @api.route('/login', methods=['POST'])
@@ -50,34 +85,24 @@ def login():
         data = request.json
         user = db.usuarios.find_one({"correo": data['correo']})
 
-        if user and user['password'] == data['password']:
-            # Crear token JWT
+        if user and check_password_hash(user['password'], data['password']):
             token = jwt.encode({
                 'user_id': str(user['_id']),
                 'exp': datetime.utcnow() + timedelta(hours=1)
             }, SECRET_KEY, algorithm='HS256')
-            
             return jsonify({"success": True, "token": token})
         else:
             return jsonify({"success": False, "message": "Correo o contraseña incorrectos"}), 401
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+
 # Ruta protegida para obtener información del usuario
 @api.route('/profile', methods=['GET'])
-def profile():
-    token = request.headers.get('Authorization')
-    if not token:
-        return jsonify({"success": False, "message": "Token faltante"}), 403
-    
-    try:
-        data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        user = db.usuarios.find_one({"_id": ObjectId(data['user_id'])})
-        return jsonify({"success": True, "user": {"nombre": user['nombre'], "correo": user['correo'], "cargo": user['cargo']}})
-    except jwt.ExpiredSignatureError:
-        return jsonify({"success": False, "message": "Token expirado"}), 403
-    except jwt.InvalidTokenError:
-        return jsonify({"success": False, "message": "Token inválido"}), 403
+@token_required
+def profile(current_user):
+    return jsonify({"success": True, "user": {"nombre": current_user['nombre'], "correo": current_user['correo'], "cargo": current_user['cargo'], "is_admin": current_user.get('is_admin', False)}})
+
 
 # Rutas de cargos
 @api.route('/cargos', methods=['GET'])
@@ -364,7 +389,9 @@ def corvina_food():
 
 
 @api.route('/congrio-edit', methods=['GET'])
-def get_congrio_data():
+@token_required
+@check_admin
+def get_congrio_edit_data(current_user):
     try:
         congrio_data = list(db.peces.find({"nombre": "Congrio"}))
         for data in congrio_data:
@@ -373,8 +400,11 @@ def get_congrio_data():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+
 @api.route('/pez/<id>', methods=['GET', 'PUT'])
-def edit_pez(id):
+@token_required
+@check_admin
+def edit_pez(current_user, id):
     try:
         if request.method == 'GET':
             pez = db.peces.find_one({"_id": ObjectId(id)})
@@ -393,16 +423,19 @@ def edit_pez(id):
 
             if result.matched_count == 0:
                 return jsonify({"success": False, "message": "No se encontró el pez a actualizar"}), 404
-            print(db.peces.find_one({"_id": ObjectId(id)}))
+            print(f"Datos después de la actualización: {db.peces.find_one({'_id': ObjectId(id)})}")
 
             return jsonify({"success": True, "message": "Datos actualizados correctamente"}), 200
 
     except Exception as e:
         print(f"⚠️ Error en PUT /pez/{id}: {e}")  # Mostrar error en la terminal
         return jsonify({"success": False, "message": str(e)}), 500
+    
 
-@api.route('/cojinova-edit', methods=['GET', 'PUT'])
-def get_cojinova_data():
+@api.route('/cojinova-edit', methods=['GET'])
+@token_required
+@check_admin
+def get_cojinova_edit_data(current_user):
     try:
         cojinova_data = list(db.peces.find({"nombre": "Cojinova"}))
         for data in cojinova_data:
@@ -411,8 +444,10 @@ def get_cojinova_data():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
     
-@api.route('/corvina-edit', methods=['GET', 'PUT'])
-def get_corvina_data():
+@api.route('/corvina-edit', methods=['GET'])
+@token_required
+@check_admin
+def get_corvina_edit_data(current_user):
     try:
         corvina_data = list(db.peces.find({"nombre": "Corvina"}))
         for data in corvina_data:
@@ -421,8 +456,10 @@ def get_corvina_data():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
-@api.route('/palometa-edit', methods=['GET', 'PUT'])
-def get_palometa_data():
+@api.route('/palometa-edit', methods=['GET'])
+@token_required
+@check_admin
+def get_palometa_edit_data(current_user):
     try:
         palometa_data = list(db.peces.find({"nombre": "Palometa"}))
         for data in palometa_data:
@@ -442,7 +479,9 @@ def get_ingredientes():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @api.route('/ingredientes', methods=['POST'])
-def add_ingrediente():
+@token_required
+@check_admin
+def add_ingrediente(current_user):
     data = request.json
     try:
         nuevo_ingrediente = {
@@ -459,7 +498,9 @@ def add_ingrediente():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @api.route('/ingredientes/<id>', methods=['PUT'])
-def update_ingrediente(id):
+@token_required
+@check_admin
+def update_ingrediente(current_user, id):
     data = request.json
     try:
         ingrediente_actualizado = {
@@ -476,7 +517,9 @@ def update_ingrediente(id):
         return jsonify({"success": False, "message": str(e)}), 500
 
 @api.route('/ingredientes/<id>', methods=['DELETE'])
-def delete_ingrediente(id):
+@token_required
+@check_admin
+def delete_ingrediente(current_user, id):
     try:
         db.ingredientes.delete_one({"_id": ObjectId(id)})
         return jsonify({"success": True, "message": "Ingrediente eliminado correctamente"}), 200
