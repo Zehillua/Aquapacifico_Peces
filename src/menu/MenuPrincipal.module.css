@@ -103,3 +103,18 @@ html, body {
   background-color: #c82333;
   transform: translateY(-2px); /* Elevar botón al pasar el ratón */
 }
+
+.adminButton {
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+}
+
+.adminButton:hover {
+  background-color: #0056b3;
+}

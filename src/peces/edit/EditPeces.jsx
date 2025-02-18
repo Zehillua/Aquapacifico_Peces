@@ -7,47 +7,70 @@ const EditPeces = () => {
   const { id } = useParams(); // Obtener el ID del pez desde la URL
   const [pezData, setPezData] = useState(null);
   const [editedData, setEditedData] = useState({});
+  const [originalData, setOriginalData] = useState({});
   const [isSaving, setIsSaving] = useState(false);  // Estado para controlar el guardado
   const [showModal, setShowModal] = useState(false);  // Estado para controlar la ventana modal
   const [error, setError] = useState(null);  // Estado para manejar errores
+  const [canEditPeces, setCanEditPeces] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem('token'); // Obtener el token almacenado
-      if (!token) {
-        console.error('Token no encontrado');
-        navigate('/login'); // Redirigir al login si no hay token
-        return;
-      }
+    const token = localStorage.getItem('token'); // Obtener el token almacenado
+    if (!token) {
+      console.error('Token no encontrado');
+      navigate('/login'); // Redirigir al login si no hay token
+      return;
+    }
 
-      try {
-        const response = await fetch(`http://localhost:5000/pez/${id}`, {
-          headers: {
-            'Authorization': token,  // Usando el token almacenado
-          },
-        });
-        if (!response.ok) {
-          throw new Error('Permiso denegado');
+    fetchUserPermissions(token);
+  }, [navigate, id]);
+
+  const fetchUserPermissions = async (token) => {
+    try {
+      const response = await fetch('http://localhost:5000/profile', {
+        headers: { 'Authorization': token },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCanEditPeces(data.user.ed_peces);
+        if (data.user.ed_peces) {
+          fetchPezData(token);
+        } else {
+          setError('No tienes permisos para editar peces.');
         }
-        const data = await response.json();
-        setPezData(data);
-        setEditedData(data); // Inicializar los datos editados con los valores de la API
-
-        // Actualizar el título de la ventana central
-        if (data.nombre && data.etapa) {
-          document.title = `Editar datos ${data.nombre} ${data.etapa}`;
-        }
-      } catch (error) {
-        console.error('Error al obtener los datos:', error);
-        setError(error.message);
       }
-    };
+    } catch (error) {
+      console.error('Error al obtener el perfil del usuario:', error);
+      setError('Error al obtener el perfil del usuario.');
+    }
+  };
 
-    fetchData();
-  }, [id, navigate]);
+  const fetchPezData = async (token) => {
+    try {
+      const response = await fetch(`http://localhost:5000/pez/${id}`, {
+        headers: {
+          'Authorization': token,  // Usando el token almacenado
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Permiso denegado');
+      }
+      const data = await response.json();
+      setPezData(data);
+      setEditedData(data); // Inicializar los datos editados con los valores de la API
+      setOriginalData(data); // Guardar los datos originales
+
+      // Actualizar el título de la ventana central
+      if (data.nombre && data.etapa) {
+        document.title = `Editar datos ${data.nombre} ${data.etapa}`;
+      }
+    } catch (error) {
+      console.error('Error al obtener los datos:', error);
+      setError(error.message);
+    }
+  };
 
   if (error) {
-    return <p>No tienes permisos para ver esta página.</p>; // Mostrar mensaje de error o redirigir
+    return <p>{error}</p>; // Mostrar mensaje de error o redirigir
   }
 
   useEffect(() => {
@@ -87,7 +110,9 @@ const EditPeces = () => {
         navigate('/login'); // Redirigir al login si no hay token
         return;
       }
-  
+
+      const change = compareChanges(originalData, editedData); // Obtener el único cambio específico
+      
       const response = await fetch(`http://localhost:5000/pez/${id}`, {
         method: 'PUT',
         headers: {
@@ -96,7 +121,14 @@ const EditPeces = () => {
         },
         body: JSON.stringify(editedData)
       });
+
       if (response.ok) {
+        const user = 'Katherine'; // Obtener el usuario actual del token o del estado
+        const pez = pezData.nombre;
+        const etapa = pezData.etapa;
+        const { nutriente, peso, cambioAnterior, cambioNuevo } = change;
+
+
         setShowModal(true); // Mostrar la ventana modal en caso de éxito
       } else {
         console.error('Error al actualizar los datos:', response.statusText);
@@ -104,10 +136,45 @@ const EditPeces = () => {
     } catch (error) {
       console.error('Error de red:', error);
     }
-  
+
     setIsSaving(false); // Habilitar el botón de guardar nuevamente
   };
-  
+
+  const compareChanges = (original, edited) => {
+    // Implementar lógica para comparar los datos originales y editados
+    // y retornar el único cambio específico
+    // Esta función debe devolver un objeto con nutriente, peso, cambioAnterior y cambioNuevo
+    let changes = {
+      nutriente: '',
+      peso: '',
+      cambioAnterior: '',
+      cambioNuevo: ''
+    };
+    
+    // Comparar los valores específicos y retornar el primer cambio encontrado
+    for (let key in original.requerimientos) {
+      for (let subKey in original.requerimientos[key]) {
+        if (original.requerimientos[key][subKey].min !== edited.requerimientos[key][subKey].min) {
+          changes = {
+            nutriente: subKey,
+            peso: key,
+            cambioAnterior: original.requerimientos[key][subKey].min,
+            cambioNuevo: edited.requerimientos[key][subKey].min
+          };
+          return changes; // Retornar el primer cambio encontrado
+        } else if (original.requerimientos[key][subKey].max !== edited.requerimientos[key][subKey].max) {
+          changes = {
+            nutriente: subKey,
+            peso: key,
+            cambioAnterior: original.requerimientos[key][subKey].max,
+            cambioNuevo: edited.requerimientos[key][subKey].max
+          };
+          return changes; // Retornar el primer cambio encontrado
+        }
+      }
+    }
+    return changes;
+  };
 
   const handleConfirm = () => {
     if (pezData && pezData.nombre) {

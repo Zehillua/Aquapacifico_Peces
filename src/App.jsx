@@ -8,6 +8,7 @@ import ResetPassword from './auth/ResetPassword';
 import MenuPrincipal from './menu/MenuPrincipal' // Asegúrate de ajustar la ruta de MenuPrincipal
 import MenuPeces from './menuPeces/MenuPeces';
 import ListaPellet from './menuIngredientes/ListaPellets';
+import ListaUsuarios from './listaUsuarios/ListaUsuarios';
 import Congrio from './peces/congrio/Congrio';
 import CongrioFood from './peces/congrio/CongrioFood';
 import CongrioEdit from './peces/congrio/CongrioEdit'; // Asegúrate de importar CongrioFood
@@ -37,6 +38,7 @@ const App = () => {
             <Route path="/verify-code" element={<VerifyCode />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/menuPrincipal" element={<ProtectedRoute><MenuPrincipal /></ProtectedRoute>} />
+            <Route path="/lista-usuarios" element={<ProtectedRoute><ListaUsuarios /></ProtectedRoute>} />
             <Route path="/menuPeces" element={<ProtectedRoute><MenuPeces /></ProtectedRoute>} />
             <Route path="/lista-pellets" element={<ProtectedRoute><ListaPellet /></ProtectedRoute>} />
             <Route path="/congrio" element={<ProtectedRoute><Congrio /></ProtectedRoute>} />

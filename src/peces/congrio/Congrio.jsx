@@ -5,33 +5,37 @@ import logo from '../../assets/LogoAquaPacifico.jpg'; // Asegúrate de que la ru
 
 const Congrio = () => {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [canEditPeces, setCanEditPeces] = useState(false);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      const token = localStorage.getItem('token'); // Obtener el token almacenado
-      if (!token) {
-        console.error('Token no encontrado');
-        return;
-      }
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('No autorizado. Por favor, inicie sesión.');
+      navigate('/login'); // Redirigir a la página de inicio de sesión si no hay token
+    } else {
+      fetchUserPermissions(token);
+    }
+  }, [navigate]);
 
-      try {
-        const response = await fetch('http://localhost:5000/profile', {
-          headers: {
-            'Authorization': token,  // Usando el token almacenado
-          },
-        });
-        const data = await response.json();
-        if (data.success) {
-          setIsAdmin(data.user.is_admin);
-        }
-      } catch (error) {
-        console.error('Error al obtener el perfil del usuario:', error);
+  const fetchUserPermissions = async (token) => {
+    try {
+      const response = await fetch('http://localhost:5000/profile', {
+        headers: { 'Authorization': token },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCanEditPeces(data.user.ed_peces);
+        console.log('Permisos de edición de peces:', data.user.ed_peces);
       }
-    };
+    } catch (error) {
+      console.error('Error al obtener el perfil del usuario:', error);
+    }
+  };
 
-    fetchUserRole();
-  }, []);
+  const handleSelectPez = (especie, ruta) => {
+    localStorage.setItem('nombre_especie', especie);
+    navigate(ruta);
+  };
 
   return (
     <div className={styles.congrioContainer}>
@@ -39,11 +43,11 @@ const Congrio = () => {
       <div className={styles.congrioContent}>
         <h2 className={styles.congrioHeading}>¿Qué desea hacer?</h2>
         <div className={styles.congrioButtonContainer}>
-          <button className={styles.congrioButton} onClick={() => navigate('/congrio-food')}>
+          <button className={styles.congrioButton} onClick={() => handleSelectPez('Congrio', '/congrio-food')}>
             Alimentar
           </button>
-          {isAdmin && (
-            <button className={styles.congrioButton} onClick={() => navigate('/congrio-edit')}>
+          {canEditPeces && (
+            <button className={styles.congrioButton} onClick={() => handleSelectPez('Congrio', '/congrio-edit')}>
               Editar datos
             </button>
           )}

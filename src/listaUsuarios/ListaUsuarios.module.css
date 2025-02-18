@@ -1,0 +1,126 @@
+.listaUsuariosContainer {
+    padding: 20px;
+  }
+  
+  .usuariosTable {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .usuariosTable th, .usuariosTable td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+  }
+  
+  .usuariosTable th {
+    background-color: #f2f2f2;
+  }
+  
+  .permiso {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+  }
+  
+  .permisoVerde {
+    background-color: green;
+  }
+  
+  .permisoRojo {
+    background-color: red;
+  }
+  
+  .permiso:hover {
+    transform: scale(1.2);
+  }
+  
+  .volverButton {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .volverButton:hover {
+    background-color: #0056b3;
+  }
+  
+  .actionButton {
+    background-color: #ff4d4d; /* Rojo */
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+  
+  .actionButton:hover {
+    background-color: #ff0000; /* Rojo más intenso */
+    transform: scale(1.1);
+  }
+  
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modalContent {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+  }
+  
+  .buttonContainer {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+  }
+  
+  .confirmButton {
+    background-color: #ff4d4d; /* Rojo */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+  
+  .confirmButton:hover {
+    background-color: #ff0000; /* Rojo más intenso */
+    transform: scale(1.1);
+  }
+  
+  .cancelButton {
+    background-color: #ccc;
+    color: black;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+  
+  .cancelButton:hover {
+    background-color: #aaa;
+    transform: scale(1.1);
+  }
+  
+  .message {
+    margin: 10px 0;
+    color: green;
+    font-weight: bold;
+  }
+  

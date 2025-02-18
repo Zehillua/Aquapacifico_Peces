@@ -19,7 +19,9 @@ const ListaPellets = () => {
   const [editId, setEditId] = useState(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [canEditIngredientes, setCanEditIngredientes] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);  // Estado para el guardado
+  const [isDeleting, setIsDeleting] = useState(false);  // Estado para la eliminación
 
   useEffect(() => {
     fetchIngredientes();
@@ -52,7 +54,7 @@ const ListaPellets = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setIsAdmin(data.user.is_admin);
+        setCanEditIngredientes(data.user.ed_ingred);
       }
     } catch (error) {
       console.error('Error al obtener el perfil del usuario:', error);
@@ -86,6 +88,7 @@ const ListaPellets = () => {
   };
 
   const handleDelete = async () => {
+    setIsDeleting(true); // Deshabilitar el botón de eliminar y mostrar el símbolo de carga
     const token = localStorage.getItem('token'); // Obtener el token almacenado
     if (!token) {
       console.error('Token no encontrado');
@@ -109,10 +112,12 @@ const ListaPellets = () => {
     } catch (error) {
       console.error('Error al eliminar el ingrediente:', error);
     }
+    setIsDeleting(false); // Habilitar el botón de eliminar nuevamente
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSaving(true);  // Deshabilitar el botón de guardar y mostrar el mensaje de guardando
     const url = modalMode === 'add' ? 'http://localhost:5000/ingredientes' : `http://localhost:5000/ingredientes/${editId}`;
     const method = modalMode === 'add' ? 'POST' : 'PUT';
 
@@ -142,6 +147,7 @@ const ListaPellets = () => {
     } catch (error) {
       console.error('Error al guardar el ingrediente:', error);
     }
+    setIsSaving(false);  // Habilitar el botón de guardar nuevamente
   };
 
   const handleChange = (e) => {
@@ -153,7 +159,7 @@ const ListaPellets = () => {
     <div className={styles.listaPelletsContainer}>
       <h1>Lista de Ingredientes</h1>
       <button className={styles.backButton} onClick={() => navigate('/menuPrincipal')}>Volver</button>
-      {isAdmin && <button className={styles.addButton} onClick={handleAdd}>+ Agregar</button>}
+      {canEditIngredientes && <button className={styles.addButton} onClick={handleAdd}>+ Agregar</button>}
       <div className={styles.tableContainer}>
         <table className={styles.ingredientesTable}>
           <thead>
@@ -164,7 +170,7 @@ const ListaPellets = () => {
               <th>Lípidos</th>
               <th>Carbohidratos</th>
               <th>Stock</th>
-              {isAdmin && <th>Acciones</th>}
+              {canEditIngredientes && <th>Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -176,7 +182,7 @@ const ListaPellets = () => {
                 <td>{ingrediente.lipidos}</td>
                 <td>{ingrediente.carbohidratos}</td>
                 <td>{ingrediente.stock}</td>
-                {isAdmin && (
+                {canEditIngredientes && (
                   <td>
                     <button className={styles.actionButton} onClick={() => handleEdit(ingrediente._id)}>Editar</button>
                     <button className={styles.actionButton} onClick={() => handleConfirmDelete(ingrediente._id)}>Eliminar</button>
@@ -205,7 +211,9 @@ const ListaPellets = () => {
               <input type="number" name="carbohidratos" value={currentIngrediente.carbohidratos} onChange={handleChange} required />
               <label>Stock:</label>
               <input type="number" name="stock" value={currentIngrediente.stock} onChange={handleChange} required />
-              <button type="submit">Guardar</button>
+              <button type="submit" disabled={isSaving}>
+                {isSaving ? <div className={styles.loadingSpinner}></div> : 'Guardar'}
+              </button>
               <button type="button" onClick={() => { setShowModal(false); setModalMessage(''); }}>Cancelar</button>
             </form>
           </div>
@@ -227,8 +235,10 @@ const ListaPellets = () => {
             <h2>Confirmar Eliminación</h2>
             <p>¿Estás seguro de que deseas eliminar este ingrediente?</p>
             <div className={styles.buttonContainer}>
-              <button className={`${styles.modalContent} ${styles.confirmButton}`} onClick={handleDelete}>Confirmar</button>
-              <button className={styles.modalContent} type="button" onClick={() => setShowConfirmDelete(false)}>Cancelar</button>
+              <button className={`${styles.confirmButton}`} onClick={handleDelete} disabled={isDeleting}>
+                {isDeleting ? <div className={styles.loadingSpinner}></div> : 'Confirmar'}
+              </button>
+              <button className={styles.cancelButton} type="button" onClick={() => setShowConfirmDelete(false)}>Cancelar</button>
             </div>
           </div>
         </div>

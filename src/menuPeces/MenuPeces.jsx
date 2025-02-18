@@ -27,7 +27,7 @@ const MenuPeces = () => {
     <div className={styles.menuPrincipalContainer}>
       <div className={styles.menuPrincipalHeader}>
         <img src={logo} alt="Logo AquaPacifico" className={styles.menuPrincipalLogo} />
-        <h1>A qué pez desea alimentar</h1>
+        <h1>¿A qué pez desea alimentar?</h1>
       </div>
       <div className={styles.menuPrincipalPezContainer}>
         <div className={styles.menuPrincipalPezItem} onClick={() => handleSelectPez('Congrio', '/congrio')}>
