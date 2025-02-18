@@ -1,4 +1,7 @@
-def get_palometa_data():
+@api.route('/palometa-edit', methods=['GET'])
+@token_required
+@check_admin
+def get_palometa_edit_data(current_user):
     try:
         palometa_data = list(db.peces.find({"nombre": "Palometa"}))
         for data in palometa_data:
