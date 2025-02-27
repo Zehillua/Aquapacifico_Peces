@@ -18,11 +18,16 @@ const EditPeces = () => {
     if (!token) {
       console.error('Token no encontrado');
       navigate('/login'); // Redirigir al login si no hay token
-      return;
+    } else {
+      fetchUserPermissions(token);
     }
-
-    fetchUserPermissions(token);
   }, [navigate, id]);
+
+  useEffect(() => {
+    if (pezData && pezData.nombre && pezData.etapa) {
+      document.title = `Editar datos ${pezData.nombre} ${pezData.etapa}`;
+    }
+  }, [pezData]);
 
   const fetchUserPermissions = async (token) => {
     try {
@@ -73,28 +78,18 @@ const EditPeces = () => {
     return <p>{error}</p>; // Mostrar mensaje de error o redirigir
   }
 
-  useEffect(() => {
-    if (pezData) {
-      // Actualizar el título de la ventana central
-      const { nombre, etapa } = pezData;
-      if (nombre && etapa) {
-        document.title = `Editar datos ${nombre} ${etapa}`;
-      }
-    }
-  }, [pezData]);
-
   const handleEdit = (field, value) => {
-    setEditedData(prevState => {
+    setEditedData((prevState) => {
       const updatedState = { ...prevState };
       const keys = field.split('.');
-  
+
       let temp = updatedState;
       for (let i = 0; i < keys.length - 1; i++) {
         temp[keys[i]] = temp[keys[i]] || {};
         temp = temp[keys[i]];
       }
       temp[keys[keys.length - 1]] = value;
-      console.log("Editando:", field, "Nuevo valor:", value);
+      console.log('Editando:', field, 'Nuevo valor:', value);
 
       return { ...updatedState };
     });
@@ -102,7 +97,7 @@ const EditPeces = () => {
 
   const handleSave = async () => {
     setIsSaving(true); // Deshabilitar el botón de guardar
-  
+
     try {
       const token = localStorage.getItem('token'); // Obtener el token almacenado
       if (!token) {
@@ -112,14 +107,14 @@ const EditPeces = () => {
       }
 
       const change = compareChanges(originalData, editedData); // Obtener el único cambio específico
-      
+
       const response = await fetch(`http://localhost:5000/pez/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token,  // Usando el token almacenado
         },
-        body: JSON.stringify(editedData)
+        body: JSON.stringify(editedData),
       });
 
       if (response.ok) {
@@ -128,6 +123,23 @@ const EditPeces = () => {
         const etapa = pezData.etapa;
         const { nutriente, peso, cambioAnterior, cambioNuevo } = change;
 
+        // Enviar correo con el cambio específico
+        await fetch('http://localhost:5000/enviar_correo_edicion', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token,  // Usando el token almacenado
+          },
+          body: JSON.stringify({
+            usuario: user,
+            pez,
+            etapa,
+            nutriente,
+            peso,
+            cambioAnterior,
+            cambioNuevo,
+          }),
+        });
 
         setShowModal(true); // Mostrar la ventana modal en caso de éxito
       } else {
@@ -148,9 +160,9 @@ const EditPeces = () => {
       nutriente: '',
       peso: '',
       cambioAnterior: '',
-      cambioNuevo: ''
+      cambioNuevo: '',
     };
-    
+
     // Comparar los valores específicos y retornar el primer cambio encontrado
     for (let key in original.requerimientos) {
       for (let subKey in original.requerimientos[key]) {
@@ -159,7 +171,7 @@ const EditPeces = () => {
             nutriente: subKey,
             peso: key,
             cambioAnterior: original.requerimientos[key][subKey].min,
-            cambioNuevo: edited.requerimientos[key][subKey].min
+            cambioNuevo: edited.requerimientos[key][subKey].min,
           };
           return changes; // Retornar el primer cambio encontrado
         } else if (original.requerimientos[key][subKey].max !== edited.requerimientos[key][subKey].max) {
@@ -167,7 +179,7 @@ const EditPeces = () => {
             nutriente: subKey,
             peso: key,
             cambioAnterior: original.requerimientos[key][subKey].max,
-            cambioNuevo: edited.requerimientos[key][subKey].max
+            cambioNuevo: edited.requerimientos[key][subKey].max,
           };
           return changes; // Retornar el primer cambio encontrado
         }
@@ -214,25 +226,26 @@ const EditPeces = () => {
     <div className={styles.pezEditContainer}>
       <h1>Editar datos {pezData?.nombre} {pezData?.etapa}</h1>
       {pezData && (
-        <div className={styles.tableContainer}>
-          {renderColumn('Mantener', 'mantener')}
-          {renderColumn('Aumentar', 'aumentar')}
-          {renderColumn('Disminuir', 'disminuir')}
-        </div>
-      )}
-      <button onClick={handleConfirm} className={styles.backButton}>Volver</button>
-
-      {/* Ventana modal */}
-      {showModal && (
-        <div className={styles.modal}>
-          <div className={styles.modalContent}>
-            <p>Datos guardados correctamente</p>
-            <button onClick={handleConfirm}>Confirmar</button>
+                <div className={styles.tableContainer}>
+                {renderColumn('Mantener', 'mantener')}
+                {renderColumn('Aumentar', 'aumentar')}
+                {renderColumn('Disminuir', 'disminuir')}
+              </div>
+            )}
+            <button onClick={handleConfirm} className={styles.backButton}>Volver</button>
+      
+            {/* Ventana modal */}
+            {showModal && (
+              <div className={styles.modal}>
+                <div className={styles.modalContent}>
+                  <p>Datos guardados correctamente</p>
+                  <button onClick={handleConfirm}>Confirmar</button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default EditPeces;
+        );
+      };
+      
+      export default EditPeces;
+      
