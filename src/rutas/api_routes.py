@@ -13,7 +13,7 @@ import jwt
 import random
 import string
 from colecciones.mongo_setup import db  # Asegúrate de que la ruta es correcta
-from funciones.funciones import calcular_nutrientes, resolver_problema_minimizacion, calcular_nutrientes_generico, convert_and_process
+from funciones.funciones import calcular_nutrientes, resolver_problema_minimizacion, calcular_nutrientes_generico, convert_and_process,detectar_cambios
 
 api = Blueprint('api', __name__)
 
@@ -75,8 +75,15 @@ def enviar_correo_veryfy(correo, codigo):
         mensaje = EmailMessage()
         mensaje['From'] = smtp_user
         mensaje['To'] = correo
-        mensaje['Subject'] = "Restablecer Contraseña"
-        mensaje.set_content(f"Tu código de restablecimiento es: {codigo}")
+        mensaje['Subject'] = "Solicitud de Restablecimiento de Contraseña"
+        mensaje.set_content(f"Estimado/a usuario/a,\n\n"
+                    f"Hemos recibido una solicitud para restablecer su contraseña. "
+                    f"Para continuar con el proceso, utilice el siguiente código de verificación:\n\n"
+                    f"{codigo}\n\n"
+                    f"Si no solicitó este cambio, ignore este mensaje.\n\n"
+                    f"Atentamente,\n"
+                    f"El equipo de soporte")
+
 
         context = ssl.create_default_context()
 
@@ -90,91 +97,150 @@ def enviar_correo_veryfy(correo, codigo):
         print(f"Error al enviar el correo: {e}")
         return False
     
-def enviar_correo_edicion(usuario, pez, etapa, nutriente, peso, cambio_anterior, cambio_nuevo):
+def enviar_correo_edicion(usuario, nombre_pez, etapa, cambios):
     try:
+        # Obtener todos los correos de los administradores
+        administradores = db.usuarios.find({"is_admin": True})  # Filtrar administradores
+        correos_admins = [admin['correo'] for admin in administradores if 'correo' in admin]  # Extraer correos
+
+        if not correos_admins:  # Si no hay administradores, detener
+            print("No hay administradores registrados para enviar correos.")
+            return False
+
         mensaje = EmailMessage()
         mensaje['From'] = smtp_user
-        mensaje['To'] = "ignaciovicente04@gmail.com"
-        mensaje['Subject'] = "Actualización de Información de Peces"
+        mensaje['To'] = ", ".join(correos_admins)  # Unir correos con coma para múltiples destinatarios
+        mensaje['Subject'] = f"Actualización en la Información del Pez: {nombre_pez}"
+
+        # Construir el cuerpo del correo
+        detalles_cambios = "\n".join([
+            f"- Categoría: {cambio['categoria']}, Nutriente: {cambio['nutriente']}, Límite: {cambio['limite']}, "
+            f"Anterior: {cambio['valor_anterior']}, Nuevo: {cambio['valor_actual']}"
+            for cambio in cambios
+        ])
+
         mensaje.set_content(
-            f"El usuario {usuario} ha realizado una actualización en el pez {pez}.\n\n"
+            f"Estimado/a,\n\n"
+            f"El usuario {usuario} ha realizado una actualización en la información del pez '{nombre_pez}'.\n\n"
             f"Etapa: {etapa}\n"
-            f"Nutriente: {nutriente}\n"
-            f"Peso: {peso}\n"
-            f"Se ha cambiado de {cambio_anterior} a {cambio_nuevo}"
+            f"Cambios detectados:\n"
+            f"{detalles_cambios}\n\n"
+            f"Si tiene alguna consulta, no dude en contactarnos.\n\n"
+            f"Saludos cordiales,\n"
+            f"Equipo de Gestión de Peces"
         )
 
+        # Configurar y enviar el correo
         context = ssl.create_default_context()
-
         with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
             server.login(smtp_user, smtp_password)
             server.send_message(mensaje)
-        
-        print("Correo enviado exitosamente")
+
+        print(f"Correo enviado exitosamente a los administradores: {correos_admins}")
         return True
     except Exception as e:
         print(f"Error al enviar el correo: {e}")
-        return 
-    
+        return False
 
 def enviar_correo_ingrediente(accion, usuario, nombre_ingrediente, cambios=None, coste=None, stock=None):
     try:
+        # Obtener los correos de todos los administradores
+        administradores = db.usuarios.find({"is_admin": True})
+        correos_admins = [admin['correo'] for admin in administradores if 'correo' in admin]
+
+        if not correos_admins:  # Si no hay correos, detener
+            print("No hay administradores registrados para enviar correos.")
+            return False
+
         mensaje = EmailMessage()
         mensaje['From'] = smtp_user
-        mensaje['To'] = "ignaciovicente04@gmail.com"
+        mensaje['To'] = ", ".join(correos_admins)
 
+        # Determinar el asunto del correo
         if accion == 'eliminar':
-            mensaje['Subject'] = "Eliminación de Ingrediente"
+            mensaje['Subject'] = "Notificación de Eliminación de Ingrediente"
             mensaje.set_content(
-                f"El usuario {usuario} ha eliminado el ingrediente {nombre_ingrediente}."
+                f"Estimado/a,\n\n"
+                f"Le informamos que el usuario {usuario} ha eliminado el ingrediente '{nombre_ingrediente}' del sistema.\n\n"
+                f"Si esta acción no fue autorizada o requiere más información, por favor, comuníquese con el equipo de soporte.\n\n"
+                f"Atentamente,\n"
+                f"El equipo de gestión"
             )
         elif accion == 'agregar':
-            mensaje['Subject'] = "Agregación de Ingrediente"
+            mensaje['Subject'] = "Notificación de Agregación de Ingrediente"
             mensaje.set_content(
-                f"El usuario {usuario} ha agregado un nuevo ingrediente.\n\n"
-                f"Nombre: {nombre_ingrediente}\n"
-                f"Coste: {coste}\n"
-                f"Stock: {stock}"
+                f"Estimado/a,\n\n"
+                f"Le informamos que el usuario {usuario} ha agregado un nuevo ingrediente al sistema.\n\n"
+                f"Detalles del ingrediente:\n"
+                f"- Nombre: {nombre_ingrediente}\n"
+                f"- Coste: {coste}\n"
+                f"- Stock disponible: {stock}\n\n"
+                f"Si requiere más información, no dude en ponerse en contacto con el equipo de soporte.\n\n"
+                f"Atentamente,\n"
+                f"El equipo de gestión"
             )
         elif accion == 'editar' and cambios:
-            mensaje['Subject'] = "Edición de Ingrediente"
-            cambios_str = "\n".join([f"{campo}: de {anterior} a {nuevo}" for campo, (anterior, nuevo) in cambios.items()])
+            mensaje['Subject'] = "Notificación de Edición de Ingrediente"
+            cambios_str = "\n".join([f"- {campo}: de {anterior} a {nuevo}" for campo, (anterior, nuevo) in cambios.items()])
             mensaje.set_content(
-                f"El usuario {usuario} ha editado el ingrediente {nombre_ingrediente}.\n\n"
-                f"Cambios realizados:\n{cambios_str}"
+                f"Estimado/a,\n\n"
+                f"Le informamos que el usuario {usuario} ha realizado modificaciones en el ingrediente '{nombre_ingrediente}'.\n\n"
+                f"Detalles de los cambios:\n{cambios_str}\n\n"
+                f"Si necesita más información, no dude en comunicarse con el equipo de soporte.\n\n"
+                f"Atentamente,\n"
+                f"El equipo de gestión"
             )
 
+        # Configurar y enviar el correo
         context = ssl.create_default_context()
-
         with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
             server.login(smtp_user, smtp_password)
             server.send_message(mensaje)
-        
-        print("Correo enviado exitosamente")
+
+        print(f"Correo enviado exitosamente a los administradores: {correos_admins}")
         return True
     except Exception as e:
         print(f"Error al enviar el correo: {e}")
         return False
+
 
 
 # Ruta para registrar un nuevo usuario
 @api.route('/register', methods=['POST'])
 def register_user():
     data = request.json
+
+    # Verificar campos obligatorios
     if not all(key in data for key in ('nombre', 'correo', 'cargo', 'password', 'confirmPassword')):
+        print("error datos form")
         return jsonify({"success": False, "message": "Faltan campos obligatorios"}), 400
 
+    # Verificar que las contraseñas coincidan
     if data['password'] != data['confirmPassword']:
+        print("error confirmar contra")
         return jsonify({"success": False, "message": "Las contraseñas no coinciden"}), 400
+        
 
+    # Verificar que el correo termine en @aquapacifico
+    if not data['correo'].endswith('@aquapacifico.cl'):
+        print("error correo")
+        return jsonify({"success": False, "message": "Solo se permiten correos con dominio @aquapacifico.cl"}), 400
+
+    # Verificar si el correo ya está registrado
+    if db.usuarios.find_one({"correo": data['correo']}):
+        print("error correo registrado")
+        return jsonify({"success": False, "message": "El correo ya está registrado"}), 400
+
+    # Hashear la contraseña
     hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
-    
+
     # Verificar si el correo es el del administrador
     is_admin = data['correo'] in ['katherine.alveal@aquapacifico.cl', 'miguelpradenas@hotmail.com']  # Cambia esto al correo del administrador real
-    
+
     # Establecer permisos de edición en True si es administrador
     ed_peces = ed_ingred = is_admin
 
+    # Insertar el nuevo usuario en la base de datos
     result = db.usuarios.insert_one({
         "nombre": data.get('nombre'),
         "correo": data.get('correo'),
@@ -184,6 +250,7 @@ def register_user():
         "ed_peces": ed_peces,
         "ed_ingred": ed_ingred
     })
+
     return jsonify({"success": True, "inserted_id": str(result.inserted_id)})
 
 
@@ -192,6 +259,7 @@ def register_user():
 def login():
     try:
         data = request.json
+        print(data)
         user = db.usuarios.find_one({"correo": data['correo']})
 
         if user and check_password_hash(user['password'], data['password']):
@@ -278,15 +346,20 @@ def verify_code():
 @api.route('/reset-password', methods=['POST'])
 def reset_password():
     data = request.json
-    email = data.get('correo')
-    new_password = data.get('newPassword')
+    email = data.get('correo')  # Obtener el correo del usuario
+    new_password = data.get('newPassword')  # La nueva contraseña en texto plano
+
+    # Verificar si el usuario existe en la base de datos
     user = db.usuarios.find_one({"correo": email})
-    
     if user:
-        db.usuarios.update_one({"correo": email}, {"$set": {"password": new_password}})
-        return jsonify({"success": True}), 200
+        # Generar el hash de la nueva contraseña
+        hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+
+        # Actualizar la contraseña en la base de datos
+        db.usuarios.update_one({"correo": email}, {"$set": {"password": hashed_password}})
+        return jsonify({"success": True, "message": "Contraseña actualizada correctamente"}), 200
     else:
-        return jsonify({"success": False, "message": "Error al restablecer la contraseña"}), 400
+        return jsonify({"success": False, "message": "Usuario no encontrado"}), 404
 
 
 @api.route('/congrio-etapas', methods=['GET'])
@@ -314,7 +387,7 @@ def get_palometa_etapas():
 @api.route('/congrio-food', methods=['POST'])
 def congrio_food():
     data = request.json
-
+    print(data)
     # Obtener datos del formulario
     nombre_especie = data.get('nombre_especie')
     etapa = data.get('etapa')
@@ -327,10 +400,11 @@ def congrio_food():
     cant_carbohidratos = float(data.get('carbohidrato_actual'))
     porcentaje_biomasa = float(data.get('porcentaje_biomasa'))  # Nuevo campo
     days = int(data.get('dias'))
+    veces_al_dia = int(data.get('veces_al_dia'))
 
     # Calcular los nutrientes necesarios para la especie
     try:
-        nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days)
+        nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days,veces_al_dia)
         print(nutrientes)
     except ValueError as e:
         return jsonify({"success": False, "message": str(e)}), 400
@@ -403,7 +477,7 @@ def cojinova_food():
 @api.route('/palometa-food', methods=['POST'])
 def palometa_food():
     data = request.json
-
+    print("Datos recibidos:", data)
     # Obtener datos del formulario
     nombre_especie = data.get('nombre_especie')
     etapa = data.get('etapa')
@@ -416,7 +490,7 @@ def palometa_food():
     cant_carbohidratos = float(data.get('carbohidrato_actual'))
     porcentaje_biomasa = float(data.get('porcentaje_biomasa'))  # Nuevo campo
     days = int(data.get('dias'))
-
+    
     # Calcular los nutrientes necesarios para la especie
     try:
         nutrientes = calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa,days)
@@ -518,59 +592,42 @@ def edit_pez(current_user, id):
             data = request.json
             data.pop('_id', None)  # Evitar modificar el _id
 
-            # Obtener el valor anterior
+            # Obtener los datos antes de la actualización
             pez_anterior = db.peces.find_one({"_id": ObjectId(id)})
             if not pez_anterior:
                 return jsonify({"success": False, "message": "No se encontró el pez a actualizar"}), 404
 
-            convert_and_process(data)
-
-            # Realizar la actualización
+            # Actualizar la base de datos
             result = db.peces.update_one({"_id": ObjectId(id)}, {"$set": data})
-
             if result.matched_count == 0:
                 return jsonify({"success": False, "message": "No se encontró el pez a actualizar"}), 404
 
-            # Obtener los valores del cambio
+            # Obtener los datos después de la actualización
             pez_actual = db.peces.find_one({"_id": ObjectId(id)})
-            
-            # Extraer el nutriente y el peso específico que se cambió
-            nutriente_cambiado = None
-            peso_cambiado = None
-            cambio_anterior = None
-            cambio_nuevo = None
 
-            for peso, requerimientos in data.get('requerimientos', {}).items():
-                for nutriente, valores in requerimientos.items():
-                    if (pez_anterior['requerimientos'][peso][nutriente]['min'] != pez_actual['requerimientos'][peso][nutriente]['min'] or
-                        pez_anterior['requerimientos'][peso][nutriente]['max'] != pez_actual['requerimientos'][peso][nutriente]['max']):
-                        nutriente_cambiado = nutriente
-                        peso_cambiado = peso
-                        cambio_anterior = pez_anterior['requerimientos'][peso][nutriente]
-                        cambio_nuevo = pez_actual['requerimientos'][peso][nutriente]
-                        break
-                if nutriente_cambiado:
-                    break
-            
-            if nutriente_cambiado and peso_cambiado:
+            # Detectar los cambios entre pez_anterior y pez_actual
+            cambios = detectar_cambios(pez_anterior, pez_actual)
+
+            print(f"Datos antes de la actualización: {pez_anterior}")
+            print(f"Datos después de la actualización: {pez_actual}")
+            print(f"Cambios detectados: {cambios}")
+
+            # Si hay cambios, enviarlos por correo
+            if cambios:
                 enviar_correo_edicion(
-                    current_user['nombre'],
-                    pez_actual['nombre'],
-                    pez_actual['etapa'],
-                    nutriente_cambiado,
-                    peso_cambiado,
-                    f"min: {cambio_anterior['min']}, max: {cambio_anterior['max']}",
-                    f"min: {cambio_nuevo['min']}, max: {cambio_nuevo['max']}"
+                    usuario=current_user['nombre'],
+                    nombre_pez=pez_actual['nombre'],
+                    etapa=pez_actual['etapa'],
+                    cambios=cambios
                 )
-            
-            print(f"Datos después de la actualización: {db.peces.find_one({'_id': ObjectId(id)})}")
 
             return jsonify({"success": True, "message": "Datos actualizados correctamente"}), 200
 
     except Exception as e:
-        print(f"⚠️ Error en PUT /pez/{id}: {e}")  # Mostrar error en la terminal
+        print(f"⚠️ Error en PUT /pez/{id}: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
-    
+
+
 
 @api.route('/cojinova-edit', methods=['GET'])
 @token_required
@@ -624,6 +681,7 @@ def get_ingredientes():
 def add_ingrediente(current_user):
     data = request.json
     try:
+        # Crear el nuevo ingrediente con los datos proporcionados
         nuevo_ingrediente = {
             "nombre": data.get("nombre"),
             "coste": float(data.get("coste")),
@@ -634,7 +692,7 @@ def add_ingrediente(current_user):
         }
         db.ingredientes.insert_one(nuevo_ingrediente)
 
-        # Enviar correo de notificación para la agregación
+        # Enviar correo de notificación a los administradores
         enviar_correo_ingrediente(
             accion='agregar',
             usuario=current_user['nombre'],
@@ -645,7 +703,9 @@ def add_ingrediente(current_user):
 
         return jsonify({"success": True, "message": "Ingrediente agregado correctamente"}), 201
     except Exception as e:
+        print(f"⚠️ Error en POST /ingredientes: {e}")  # Mostrar error en la terminal
         return jsonify({"success": False, "message": str(e)}), 500
+
 
 @api.route('/ingredientes/<id>', methods=['PUT'])
 @token_required
@@ -653,11 +713,12 @@ def add_ingrediente(current_user):
 def update_ingrediente(current_user, id):
     data = request.json
     try:
-        # Obtener el valor anterior
+        # Obtener los datos anteriores del ingrediente
         ingrediente_anterior = db.ingredientes.find_one({"_id": ObjectId(id)})
         if not ingrediente_anterior:
             return jsonify({"success": False, "message": "Ingrediente no encontrado"}), 404
 
+        # Preparar los datos actualizados
         ingrediente_actualizado = {
             "nombre": data.get("nombre"),
             "coste": float(data.get("coste")),
@@ -668,27 +729,27 @@ def update_ingrediente(current_user, id):
         }
         db.ingredientes.update_one({"_id": ObjectId(id)}, {"$set": ingrediente_actualizado})
 
-        # Identificar los campos que cambiaron
+        # Identificar los cambios entre los datos anteriores y los actualizados
         cambios = {}
         for campo in ingrediente_actualizado:
-            if ingrediente_actualizado[campo] != ingrediente_anterior[campo]:
-                cambios[campo] = (ingrediente_anterior[campo], ingrediente_actualizado[campo])
+            if ingrediente_actualizado[campo] != ingrediente_anterior.get(campo):
+                cambios[campo] = (ingrediente_anterior.get(campo), ingrediente_actualizado[campo])
 
-        # Enviar correo de notificación para la edición
-        correo_enviado = enviar_correo_ingrediente(
-            accion='editar',
-            usuario=current_user['nombre'],
-            nombre_ingrediente=ingrediente_actualizado["nombre"],
-            cambios=cambios
-        )
-
-        if not correo_enviado:
-            print("⚠️ Error al enviar el correo de notificación")
-            return jsonify({"success": False, "message": "Error al enviar el correo de notificación"}), 500
+        # Enviar correo de notificación si hubo cambios
+        if cambios:
+            correo_enviado = enviar_correo_ingrediente(
+                accion='editar',
+                usuario=current_user['nombre'],
+                nombre_ingrediente=ingrediente_actualizado["nombre"],
+                cambios=cambios
+            )
+            if not correo_enviado:
+                print("⚠️ Error al enviar el correo de notificación")
+                return jsonify({"success": False, "message": "Error al enviar el correo de notificación"}), 500
 
         return jsonify({"success": True, "message": "Ingrediente actualizado correctamente"}), 200
     except Exception as e:
-        print(f"⚠️ Error en PUT /ingredientes/{id}: {e}")  # Mostrar error en la terminal
+        print(f"⚠️ Error en PUT /ingredientes/{id}: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 
@@ -697,14 +758,15 @@ def update_ingrediente(current_user, id):
 @check_edicion_ingredientes
 def delete_ingrediente(current_user, id):
     try:
-        # Obtener el ingrediente antes de eliminarlo
+        # Obtener los datos del ingrediente antes de eliminarlo
         ingrediente = db.ingredientes.find_one({"_id": ObjectId(id)})
         if not ingrediente:
             return jsonify({"success": False, "message": "Ingrediente no encontrado"}), 404
-        
+
+        # Eliminar el ingrediente de la base de datos
         db.ingredientes.delete_one({"_id": ObjectId(id)})
 
-        # Enviar correo de notificación para la eliminación
+        # Enviar correo de notificación a los administradores
         enviar_correo_ingrediente(
             accion='eliminar',
             usuario=current_user['nombre'],
@@ -713,6 +775,7 @@ def delete_ingrediente(current_user, id):
 
         return jsonify({"success": True, "message": "Ingrediente eliminado correctamente"}), 200
     except Exception as e:
+        print(f"⚠️ Error en DELETE /ingredientes/{id}: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 

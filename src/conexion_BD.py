@@ -4,7 +4,7 @@ from colecciones.mongo_setup import create_collections
 from rutas.api_routes import api
 
 app = Flask(__name__)
-CORS(app)  # Habilitar CORS para toda la aplicación
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "file://*"]}})  # Habilitar CORS para toda la aplicación
 
 # Configurar las colecciones al iniciar la aplicación
 create_collections()
@@ -17,4 +17,4 @@ def home():
     return "API de Peces Aquapacifico"
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)

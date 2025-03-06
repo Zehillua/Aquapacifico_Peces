@@ -64,12 +64,12 @@ def resolver_problema_minimizacion(ingredientes, nutrientes):
     problema += pulp.lpSum([ingredientes[ing]["carbohidratos"] * variables[ing.replace(" ", "_")] for ing in ingredientes]) >= nutrientes["carbohidratos_necesarios_min"] * 0.9
 
     # Restricción de cantidad total de la mezcla (2% de margen)
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) >= nutrientes["alimento_diario"] * 0.99
-    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) <= nutrientes["alimento_diario"] * 1.01
+    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) >= nutrientes["alimento_por_vez"] * 0.99
+    problema += pulp.lpSum([variables[ing.replace(" ", "_")] for ing in ingredientes]) <= nutrientes["alimento_por_vez"] * 1.01
 
     # Restricciones específicas de levadura (0.1% mínimo y 1% máximo del alimento diario)
-    problema += variables["Levadura"] >= 0.001 * nutrientes["alimento_diario"]  # Mínimo 0.1%
-    problema += variables["Levadura"] <= min(ingredientes["Levadura"]["stock"], 0.01 * nutrientes["alimento_diario"])  # Máximo 1% o stock disponible
+    problema += variables["Levadura"] >= 0.001 * nutrientes["alimento_por_vez"]  # Mínimo 0.1%
+    problema += variables["Levadura"] <= min(ingredientes["Levadura"]["stock"], 0.01 * nutrientes["alimento_por_vez"])  # Máximo 1% o stock disponible
 
     # Resolver el problema
     problema.solve()
@@ -116,7 +116,7 @@ def resolver_problema_minimizacion(ingredientes, nutrientes):
 
 
 
-def calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa, dias):
+def calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, etapa, peso_objetivo, cantidad_levadura, cant_proteina, cant_lipidos, cant_carbohidratos, porcentaje_biomasa, dias, veces_al_dia):
     especie = db.peces.find_one({"nombre": nombre_especie, "etapa": etapa})
 
     if not especie:
@@ -125,14 +125,15 @@ def calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, 
     requerimientos = especie["requerimientos"][peso_objetivo]
 
     biomasa = cantidad_peces * peso_promedio
-    alimento_diario = (biomasa * (porcentaje_biomasa / 100) )* dias # Usar el porcentaje de biomasa para el cálculo
+    alimento_diario_total = (biomasa * (porcentaje_biomasa / 100)) * dias
+    alimento_por_vez = alimento_diario_total / veces_al_dia  # Divide el alimento diario entre las veces al día
 
-    proteinas_necesarias_min = round(requerimientos["proteina"]["min"] * alimento_diario, 2)
-    proteinas_necesarias_max = round(requerimientos["proteina"]["max"] * alimento_diario, 2)
-    lipidos_necesarios_min = round(requerimientos["lipidos"]["min"] * alimento_diario, 2)
-    lipidos_necesarios_max = round(requerimientos["lipidos"]["max"] * alimento_diario, 2)
-    carbohidratos_necesarios_min = round(requerimientos["carbohidratos"]["min"] * alimento_diario, 2)
-    carbohidratos_necesarios_max = round(requerimientos["carbohidratos"]["max"] * alimento_diario, 2)
+    proteinas_necesarias_min = round(requerimientos["proteina"]["min"] * alimento_por_vez, 2)
+    proteinas_necesarias_max = round(requerimientos["proteina"]["max"] * alimento_por_vez, 2)
+    lipidos_necesarios_min = round(requerimientos["lipidos"]["min"] * alimento_por_vez, 2)
+    lipidos_necesarios_max = round(requerimientos["lipidos"]["max"] * alimento_por_vez, 2)
+    carbohidratos_necesarios_min = round(requerimientos["carbohidratos"]["min"] * alimento_por_vez, 2)
+    carbohidratos_necesarios_max = round(requerimientos["carbohidratos"]["max"] * alimento_por_vez, 2)
     
     db.ingredientes.update_one(
         {"nombre": "Levadura"},
@@ -145,15 +146,16 @@ def calcular_nutrientes_generico(nombre_especie, cantidad_peces, peso_promedio, 
     )
 
     return {
-        "biomasa": biomasa,
-        "alimento_diario": alimento_diario,
-        "proteinas_necesarias_min": proteinas_necesarias_min,
-        "proteinas_necesarias_max": proteinas_necesarias_max,
-        "lipidos_necesarios_min": lipidos_necesarios_min,
-        "lipidos_necesarios_max": lipidos_necesarios_max,
-        "carbohidratos_necesarios_min": carbohidratos_necesarios_min,
-        "carbohidratos_necesarios_max": carbohidratos_necesarios_max
-    }
+    "biomasa": biomasa,
+    "alimento_diario_total": alimento_diario_total,
+    "alimento_por_vez": alimento_por_vez,
+    "proteinas_necesarias_min": proteinas_necesarias_min,
+    "proteinas_necesarias_max": proteinas_necesarias_max,
+    "lipidos_necesarios_min": lipidos_necesarios_min,
+    "lipidos_necesarios_max": lipidos_necesarios_max,
+    "carbohidratos_necesarios_min": carbohidratos_necesarios_min,
+    "carbohidratos_necesarios_max": carbohidratos_necesarios_max
+}
 
 
 
@@ -168,3 +170,26 @@ def convert_and_process(data):
             elif isinstance(value, str) and value.replace('.', '', 1).isdigit():
                 data[key] = float(value)  # Convertir strings numéricos en float
 
+def detectar_cambios(pez_anterior, pez_actual):
+    cambios = []  # Lista donde guardaremos los cambios detectados
+    requerimientos_anterior = pez_anterior.get("requerimientos", {})
+    requerimientos_actual = pez_actual.get("requerimientos", {})
+
+    for categoria, nutrientes_anterior in requerimientos_anterior.items():
+        nutrientes_actual = requerimientos_actual.get(categoria, {})
+        for nutriente, valores_anterior in nutrientes_anterior.items():
+            valores_actual = nutrientes_actual.get(nutriente, {})
+            for limite, valor_anterior in valores_anterior.items():
+                valor_actual = valores_actual.get(limite)
+
+                # Comparar los valores; si son diferentes, registrar el cambio
+                if str(valor_anterior) != str(valor_actual):  # Convertimos a string para evitar problemas con tipos
+                    cambios.append({
+                        "categoria": categoria,
+                        "nutriente": nutriente,
+                        "limite": limite,  # 'min' o 'max'
+                        "valor_anterior": valor_anterior,
+                        "valor_actual": valor_actual,
+                    })
+
+    return cambios
